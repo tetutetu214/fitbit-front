@@ -89,7 +89,7 @@ EventBridge Scheduler (6時間ごと)
 | サービス | 無料枠 | 1ユーザー推定使用量 | 月額コスト |
 |---|---|---|---|
 | **Lambda** | 100万リクエスト + 40万GB秒/月（永続） | ~3,900回 + 487GB秒 | **$0.00** |
-| **DynamoDB** | 25GB + 25RCU/25WCU Provisioned（永続） | ~5MB/年 | **$0.00** |
+| **DynamoDB** | On-Demandモード（$1.25/100万WRU, $0.25/100万RRU） | ~600W + ~3,000R/月 | **~$0.003** |
 | **CloudFront** | 1TB転送 + 1,000万リクエスト（永続） | ~100MB | **$0.00** |
 | **EventBridge** | 1,400万スケジューラ呼び出し（永続） | ~30回 | **$0.00** |
 | **Cognito** | 10,000MAU Liteティア（永続） | 1MAU | **$0.00** |
@@ -114,7 +114,7 @@ EventBridge Scheduler (6時間ごと)
 
 1. **HTTP API**を使用（REST APIより71%安価、JWTオーソライザー対応）
 2. **SSM Parameter Store**でトークン保存（Secrets Managerは$0.40/secret/月）
-3. **DynamoDB Provisioned**モード（On-Demandは無料WCU/RCUなし）
+3. **DynamoDB On-Demand**モード（Provisioned永続無料枠はアカウント全テーブルで共有のため、既存アカウントではOn-Demandが運用上適切。月額~$0.003）
 4. **Lambda ARM/Graviton2**アーキテクチャ（x86比20%安価）
 5. **EventBridge Scheduler**（1,400万回/月が永続無料）
 6. **Cognito Lite**ティア（10,000MAUまで永続無料）
@@ -268,6 +268,6 @@ Fitbitトークンはサーバーサイドのみで扱い、**フロントエン
 
 ## 結論：実現可能性と設計上の重要判断
 
-本設計は**月額~$0.40〜$0.60**（既存AWSアカウント前提）でフル機能の個人向けヘルスBIツールを運用でき、50ユーザーまでスケールしても$5/月予算の12%未満に収まる。設計上の最重要判断は3点：フロントエンドに**Cloudflare Pages**を選択すること（S3+CloudFront比でコスト$0、セットアップ時間1/20）、トークン保管に**SSM Parameter Store + Secrets Managerのハイブリッド**を採用すること（全量Secrets Managerの1/50のコスト）、DynamoDBを**Provisionedモード（25/25 RCU/WCU）**で運用すること（On-Demandには無料枠なし）である。
+本設計は**月額~$0.40〜$0.60**（既存AWSアカウント前提）でフル機能の個人向けヘルスBIツールを運用でき、50ユーザーまでスケールしても$5/月予算の12%未満に収まる。設計上の最重要判断は3点：フロントエンドに**Cloudflare Pages**を選択すること（S3+CloudFront比でコスト$0、セットアップ時間1/20）、トークン保管に**SSM Parameter Store + Secrets Managerのハイブリッド**を採用すること（全量Secrets Managerの1/50のコスト）、DynamoDBを**On-Demandモード**で運用すること（既存アカウントではProvisioned永続無料枠が他テーブルと共有されるため、キャパシティ管理不要のOn-Demandが適切）である。
 
 2026年9月にFitbit Web APIのdeprecationが予定されているため、Phase 3完了後にGoogle Health APIへの移行パスを調査・設計しておくことを強く推奨する。データ収集Lambda関数にAPIアダプターパターンを採用し、エンドポイント切り替えを最小コストで行える設計が望ましい。
