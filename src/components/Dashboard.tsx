@@ -79,7 +79,7 @@ export function Dashboard({ data }: DashboardProps) {
           <div className="chart-card">
             <h3>血中酸素濃度 (SpO2)</h3>
             <SpO2Chart data={data} />
-            <div className="note">※正常範囲: 95〜100%　睡眠中に計測</div>
+            <div className="note">※正常範囲: 95〜100% 睡眠中に計測</div>
           </div>
           <div className="chart-card">
             <h3>歩数</h3>

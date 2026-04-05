@@ -1,13 +1,47 @@
+import {
+  ResponsiveContainer,
+  LineChart, Line,
+  BarChart, Bar,
+  AreaChart, Area,
+  PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ReferenceLine, ReferenceArea,
+  LabelList,
+} from 'recharts';
 import type { HealthData } from '../types/health';
-import { PlotlyChart } from './PlotlyChart';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Plotly's TypeScript definitions are stricter than the actual runtime API.
-// We use `as any` for mode and title fields that work at runtime but don't
-// match the narrow union types in @types/plotly.js.
+/* ── shared ── */
 
 interface ChartsProps {
   data: HealthData;
+}
+
+const GRID_COLOR = '#21262d';
+const TEXT_COLOR = '#7d8590';
+const LABEL_COLOR = '#e6edf3';
+
+/** カスタムTooltip共通コンポーネント */
+function CustomTooltip({ active, payload, formatter }: {
+  active?: boolean;
+  payload?: Array<{ value: number; name: string; color: string; payload: Record<string, unknown> }>;
+  formatter: (p: { value: number; name: string; color: string; payload: Record<string, unknown> }) => string;
+}) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0];
+  return (
+    <div style={{
+      background: '#1c2333', border: '1px solid #21262d', borderRadius: 6,
+      padding: '6px 10px', fontSize: 12, color: '#e6edf3',
+    }}>
+      {formatter(item)}
+    </div>
+  );
+}
+
+/** 日付ラベルを短縮 (MM/DD) */
+function shortDate(d: string) {
+  const m = d.match(/(\d+)-(\d+)$/);
+  return m ? `${parseInt(m[1])}/${parseInt(m[2])}` : d;
 }
 
 /** 有効なデータだけを抽出するヘルパー */
@@ -24,167 +58,223 @@ function validItems<T>(dates: string[], arr: (T | null)[]): [string[], T[]] {
   return [d, v];
 }
 
+/* ── 安静時心拍数 ── */
+
 export function RestingHRChart({ data }: ChartsProps) {
   const [hrd, hrv] = validItems(data.dates, data.resting_hr);
+  const chartData = hrd.map((d, i) => ({ date: d, hr: hrv[i] }));
+
   return (
-    <PlotlyChart
-      data={[{
-        x: hrd, y: hrv, type: 'scatter', mode: 'lines+markers+text' as any,
-        text: hrv.map(String), textposition: 'top center',
-        textfont: { size: 11, color: '#ff6b6b' },
-        line: { color: '#ff6b6b', width: 3 }, marker: { size: 7 },
-        hovertemplate: '%{x}<br>安静時心拍数: %{y} bpm<extra></extra>',
-      }]}
-      layout={{ yaxis: { gridcolor: '#21262d', title: { text: 'bpm' } } }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={chartData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" bpm" width={52} />
+        <Tooltip content={<CustomTooltip formatter={(p) => `安静時心拍数: ${p.value} bpm`} />} />
+        <Line type="monotone" dataKey="hr" stroke="#ff6b6b" strokeWidth={3} dot={{ r: 4, fill: '#ff6b6b' }} activeDot={{ r: 6 }}>
+          <LabelList dataKey="hr" position="top" fill="#ff6b6b" fontSize={11} />
+        </Line>
+      </LineChart>
+    </ResponsiveContainer>
   );
 }
+
+/* ── 歩数 ── */
 
 export function StepsChart({ data }: ChartsProps) {
+  const chartData = data.dates.map((d, i) => ({
+    date: d,
+    steps: data.steps[i],
+    fill: data.steps[i] >= 10000 ? '#00d68f' : '#4ecdc4',
+  }));
+
   return (
-    <PlotlyChart
-      data={[
-        {
-          x: data.dates, y: data.steps, type: 'bar',
-          marker: { color: data.steps.map(s => s >= 10000 ? '#00d68f' : '#4ecdc4') },
-          text: data.steps.map(s => s > 0 ? s.toLocaleString() : ''),
-          textposition: 'outside', textfont: { size: 10, color: '#e6edf3' },
-          hovertemplate: '%{x}<br>歩数: %{y:,}<extra></extra>',
-        },
-        {
-          x: data.dates, y: data.dates.map(() => 10000),
-          type: 'scatter', mode: 'lines',
-          line: { color: '#ff6b6b', dash: 'dash', width: 1 },
-          hoverinfo: 'skip', name: '目標',
-        },
-      ]}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={chartData} margin={{ top: 24, right: 16, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+        <Tooltip content={<CustomTooltip formatter={(p) => `歩数: ${Number(p.value).toLocaleString()}`} />} />
+        <ReferenceLine y={10000} stroke="#ff6b6b" strokeDasharray="6 4" strokeWidth={1} label={{ value: '目標', fill: '#ff6b6b', fontSize: 10, position: 'right' }} />
+        <Bar dataKey="steps" radius={[3, 3, 0, 0]}>
+          {chartData.map((entry, i) => (
+            <Cell key={i} fill={entry.fill} />
+          ))}
+          <LabelList dataKey="steps" position="top" fill={LABEL_COLOR} fontSize={10} formatter={(v) => Number(v) > 0 ? Number(v).toLocaleString() : ''} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
+/* ── 睡眠ステージ ── */
+
+const SLEEP_STAGES = [
+  { key: 'deep', name: '深い眠り', color: '#1a237e' },
+  { key: 'light', name: '浅い眠り', color: '#5c6bc0' },
+  { key: 'rem', name: 'レム睡眠', color: '#26a69a' },
+  { key: 'wake', name: '覚醒', color: '#ef5350' },
+] as const;
+
 export function SleepStagesChart({ data }: ChartsProps) {
+  const chartData = data.dates.map((d, i) => ({
+    date: d,
+    deep: data.deep[i],
+    light: data.light[i],
+    rem: data.rem[i],
+    wake: data.wake[i],
+  }));
+
   return (
-    <PlotlyChart
-      data={[
-        { x: data.dates, y: data.deep, type: 'bar', name: '深い眠り', marker: { color: '#1a237e' }, hovertemplate: '深い眠り: %{y}分<extra></extra>' },
-        { x: data.dates, y: data.light, type: 'bar', name: '浅い眠り', marker: { color: '#5c6bc0' }, hovertemplate: '浅い眠り: %{y}分<extra></extra>' },
-        { x: data.dates, y: data.rem, type: 'bar', name: 'レム睡眠', marker: { color: '#26a69a' }, hovertemplate: 'レム睡眠: %{y}分<extra></extra>' },
-        { x: data.dates, y: data.wake, type: 'bar', name: '覚醒', marker: { color: '#ef5350' }, hovertemplate: '覚醒: %{y}分<extra></extra>' },
-      ]}
-      layout={{
-        barmode: 'stack',
-        showlegend: true,
-        legend: { orientation: 'h', y: 1.15, font: { size: 10 } },
-        yaxis: { gridcolor: '#21262d', title: { text: '分' } },
-      }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" 分" width={48} />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+                {payload.map((p, i) => (
+                  <div key={i} style={{ color: p.color }}>{p.name}: {p.value as number}分</div>
+                ))}
+              </div>
+            );
+          }}
+        />
+        <Legend
+          verticalAlign="top"
+          wrapperStyle={{ fontSize: 10, color: TEXT_COLOR, paddingBottom: 8 }}
+        />
+        {SLEEP_STAGES.map((s) => (
+          <Bar key={s.key} dataKey={s.key} name={s.name} stackId="sleep" fill={s.color} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
+
+/* ── HRV ── */
 
 export function HRVChart({ data }: ChartsProps) {
   const [hrvd, hrvv] = validItems(data.dates, data.hrv_rmssd);
+  const chartData = hrvd.map((d, i) => ({ date: d, hrv: hrvv[i] }));
+  const yMax = Math.max(...hrvv, 60);
+
   return (
-    <PlotlyChart
-      data={[{
-        x: hrvd, y: hrvv, type: 'scatter', mode: 'lines+markers+text' as any,
-        text: hrvv.map(v => v.toFixed(1)), textposition: 'top center',
-        textfont: { size: 11, color: '#00d68f' },
-        line: { color: '#00d68f', width: 3 }, marker: { size: 7 },
-        fill: 'tozeroy', fillcolor: 'rgba(0,214,143,0.08)',
-        hovertemplate: '%{x}<br>RMSSD: %{y:.1f} ms<extra></extra>',
-      }]}
-      layout={{
-        yaxis: { gridcolor: '#21262d', title: { text: 'RMSSD (ms)' } },
-        shapes: [
-          { type: 'rect', x0: hrvd[0] || 0, x1: hrvd[hrvd.length - 1] || 1, y0: 50, y1: 100, fillcolor: 'rgba(0,214,143,0.06)', line: { width: 0 } },
-          { type: 'rect', x0: hrvd[0] || 0, x1: hrvd[hrvd.length - 1] || 1, y0: 20, y1: 50, fillcolor: 'rgba(255,179,71,0.06)', line: { width: 0 } },
-          { type: 'rect', x0: hrvd[0] || 0, x1: hrvd[hrvd.length - 1] || 1, y0: 0, y1: 20, fillcolor: 'rgba(255,107,107,0.06)', line: { width: 0 } },
-        ],
-        annotations: [
-          { x: 1, y: 75, xref: 'paper', text: '良好', showarrow: false, font: { size: 9, color: '#00d68f' } },
-          { x: 1, y: 35, xref: 'paper', text: '普通', showarrow: false, font: { size: 9, color: '#ffb347' } },
-          { x: 1, y: 10, xref: 'paper', text: '低い', showarrow: false, font: { size: 9, color: '#ff6b6b' } },
-        ],
-      }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={chartData} margin={{ top: 20, right: 40, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" ms" width={52} domain={[0, yMax]} />
+        <Tooltip content={<CustomTooltip formatter={(p) => `RMSSD: ${Number(p.value).toFixed(1)} ms`} />} />
+        {/* Zone backgrounds */}
+        <ReferenceArea y1={50} y2={yMax} fill="rgba(0,214,143,0.06)" ifOverflow="hidden" />
+        <ReferenceArea y1={20} y2={50} fill="rgba(255,179,71,0.06)" ifOverflow="hidden" />
+        <ReferenceArea y1={0} y2={20} fill="rgba(255,107,107,0.06)" ifOverflow="hidden" />
+        <Area type="monotone" dataKey="hrv" stroke="#00d68f" strokeWidth={3} fill="rgba(0,214,143,0.08)" dot={{ r: 4, fill: '#00d68f' }} activeDot={{ r: 6 }}>
+          <LabelList dataKey="hrv" position="top" fill="#00d68f" fontSize={11} formatter={(v) => Number(v).toFixed(1)} />
+        </Area>
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
+/* ── 回復スコア ── */
+
 export function RecoveryChart({ data }: ChartsProps) {
-  const rd: string[] = [];
-  const rv: number[] = [];
-  const rc: string[] = [];
+  const chartData: Array<{ date: string; score: number; fill: string }> = [];
   data.dates.forEach((d, i) => {
     const s = data.recovery_scores[i];
     if (s !== null) {
-      rd.push(d);
-      rv.push(s);
-      rc.push(s >= 67 ? '#00d68f' : s >= 34 ? '#ffb347' : '#ff6b6b');
+      chartData.push({
+        date: d,
+        score: s,
+        fill: s >= 67 ? '#00d68f' : s >= 34 ? '#ffb347' : '#ff6b6b',
+      });
     }
   });
 
   return (
-    <PlotlyChart
-      data={[{
-        x: rd, y: rv, type: 'bar',
-        marker: { color: rc },
-        text: rv.map(v => String(Math.round(v))),
-        textposition: 'outside', textfont: { size: 13, color: '#e6edf3' },
-        hovertemplate: '%{x}<br>回復スコア: %{y:.1f}/100<extra></extra>',
-      }]}
-      layout={{
-        yaxis: { gridcolor: '#21262d', title: { text: 'スコア' }, range: [0, 105] },
-        shapes: [
-          { type: 'rect', x0: -0.5, x1: rd.length, y0: 67, y1: 100, fillcolor: 'rgba(0,214,143,0.05)', line: { width: 0 } },
-          { type: 'rect', x0: -0.5, x1: rd.length, y0: 34, y1: 67, fillcolor: 'rgba(255,179,71,0.05)', line: { width: 0 } },
-          { type: 'rect', x0: -0.5, x1: rd.length, y0: 0, y1: 34, fillcolor: 'rgba(255,107,107,0.05)', line: { width: 0 } },
-        ],
-        annotations: [
-          { x: 1, y: 83, xref: 'paper', text: '良好', showarrow: false, font: { size: 9, color: '#00d68f' } },
-          { x: 1, y: 50, xref: 'paper', text: '普通', showarrow: false, font: { size: 9, color: '#ffb347' } },
-          { x: 1, y: 17, xref: 'paper', text: '低い', showarrow: false, font: { size: 9, color: '#ff6b6b' } },
-        ],
-      }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={chartData} margin={{ top: 24, right: 40, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" " width={36} domain={[0, 105]} />
+        <Tooltip content={<CustomTooltip formatter={(p) => `回復スコア: ${Number(p.value).toFixed(1)}/100`} />} />
+        {/* Zone backgrounds */}
+        <ReferenceArea y1={67} y2={100} fill="rgba(0,214,143,0.05)" ifOverflow="hidden" />
+        <ReferenceArea y1={34} y2={67} fill="rgba(255,179,71,0.05)" ifOverflow="hidden" />
+        <ReferenceArea y1={0} y2={34} fill="rgba(255,107,107,0.05)" ifOverflow="hidden" />
+        <Bar dataKey="score" radius={[3, 3, 0, 0]}>
+          {chartData.map((entry, i) => (
+            <Cell key={i} fill={entry.fill} />
+          ))}
+          <LabelList dataKey="score" position="top" fill={LABEL_COLOR} fontSize={13} formatter={(v) => Math.round(Number(v))} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
+
+/* ── SpO2 ── */
 
 export function SpO2Chart({ data }: ChartsProps) {
   const [sd, sa] = validItems(data.dates, data.spo2_avg);
-  const smin = sd.map((_, i) => data.spo2_min[data.dates.indexOf(sd[i])]);
-  const smax = sd.map((_, i) => data.spo2_max[data.dates.indexOf(sd[i])]);
+  const chartData = sd.map((d, i) => {
+    const origIdx = data.dates.indexOf(d);
+    return {
+      date: d,
+      avg: sa[i],
+      min: data.spo2_min[origIdx],
+      max: data.spo2_max[origIdx],
+    };
+  });
 
   return (
-    <PlotlyChart
-      data={[
-        { x: sd, y: smax, type: 'scatter', mode: 'lines', line: { width: 0 }, showlegend: false, hoverinfo: 'skip' },
-        {
-          x: sd, y: smin, type: 'scatter', mode: 'lines', line: { width: 0 },
-          fill: 'tonexty', fillcolor: 'rgba(0,188,212,0.12)', showlegend: false, hoverinfo: 'skip',
-        },
-        {
-          x: sd, y: sa, type: 'scatter', mode: 'lines+markers+text' as any,
-          text: sa.map(v => v.toFixed(1) + '%'), textposition: 'top center',
-          textfont: { size: 11, color: '#00bcd4' },
-          line: { color: '#00bcd4', width: 3 }, marker: { size: 7 },
-          hovertemplate: '%{x}<br>平均: %{y:.1f}%<extra></extra>',
-        },
-      ]}
-      layout={{
-        yaxis: { gridcolor: '#21262d', title: { text: '%' }, range: [88, 101] },
-        shapes: [
-          { type: 'rect', x0: sd[0] || 0, x1: sd[sd.length - 1] || 1, y0: 95, y1: 101, fillcolor: 'rgba(0,214,143,0.05)', line: { width: 0 } },
-          { type: 'rect', x0: sd[0] || 0, x1: sd[sd.length - 1] || 1, y0: 90, y1: 95, fillcolor: 'rgba(255,179,71,0.05)', line: { width: 0 } },
-          { type: 'rect', x0: sd[0] || 0, x1: sd[sd.length - 1] || 1, y0: 85, y1: 90, fillcolor: 'rgba(255,107,107,0.05)', line: { width: 0 } },
-        ],
-        annotations: [
-          { x: 1, y: 98, xref: 'paper', text: '正常', showarrow: false, font: { size: 9, color: '#00d68f' } },
-          { x: 1, y: 92, xref: 'paper', text: '要注意', showarrow: false, font: { size: 9, color: '#ffb347' } },
-        ],
-      }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={chartData} margin={{ top: 20, right: 40, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit="%" width={44} domain={[88, 101]} />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const d = payload[0].payload as { avg: number; min: number | null; max: number | null };
+            return (
+              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+                <div>平均: {d.avg.toFixed(1)}%</div>
+                {d.min != null && <div>最低: {d.min.toFixed(1)}%</div>}
+                {d.max != null && <div>最高: {d.max.toFixed(1)}%</div>}
+              </div>
+            );
+          }}
+        />
+        {/* Zone backgrounds */}
+        <ReferenceArea y1={95} y2={101} fill="rgba(0,214,143,0.05)" ifOverflow="hidden" />
+        <ReferenceArea y1={90} y2={95} fill="rgba(255,179,71,0.05)" ifOverflow="hidden" />
+        <ReferenceArea y1={85} y2={90} fill="rgba(255,107,107,0.05)" ifOverflow="hidden" />
+        {/* Min-Max range */}
+        <Area type="monotone" dataKey="max" stroke="none" fill="rgba(0,188,212,0.12)" activeDot={false} />
+        <Area type="monotone" dataKey="min" stroke="none" fill="#161b22" activeDot={false} />
+        {/* Average line */}
+        <Area type="monotone" dataKey="avg" stroke="#00bcd4" strokeWidth={3} fill="none" dot={{ r: 4, fill: '#00bcd4' }} activeDot={{ r: 6 }}>
+          <LabelList dataKey="avg" position="top" fill="#00bcd4" fontSize={11} formatter={(v) => `${Number(v).toFixed(1)}%`} />
+        </Area>
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
+
+/* ── 心拍ゾーン ドーナツ ── */
+
+const ZONE_NAME_MAP: Record<string, string> = {
+  'Fat Burn': '脂肪燃焼帯', Cardio: '有酸素帯', Peak: '最大強度帯', 'Out of Range': '安静帯',
+};
+const ZONE_COLORS: Record<string, string> = {
+  'Fat Burn': '#ffb347', Cardio: '#ff6b6b', Peak: '#e040fb', 'Out of Range': '#2a2d3a',
+};
 
 export function HRZoneDonut({ data }: ChartsProps) {
   const last = data.dates.length - 1;
@@ -193,34 +283,51 @@ export function HRZoneDonut({ data }: ChartsProps) {
 
   if (zones.length === 0 && !rhr) return null;
 
-  const zoneNameMap: Record<string, string> = {
-    'Fat Burn': '脂肪燃焼帯', Cardio: '有酸素帯', Peak: '最大強度帯', 'Out of Range': '安静帯',
-  };
-  const zoneColors: Record<string, string> = {
-    'Fat Burn': '#ffb347', Cardio: '#ff6b6b', Peak: '#e040fb', 'Out of Range': '#2a2d3a',
-  };
+  const pieData = zones.map(z => ({
+    name: ZONE_NAME_MAP[z.name] || z.name,
+    value: z.minutes,
+    calories: Math.round(z.caloriesOut),
+    color: ZONE_COLORS[z.name] || '#555',
+  }));
 
   return (
-    <PlotlyChart
-      data={[{
-        values: zones.map(z => z.minutes),
-        labels: zones.map(z => zoneNameMap[z.name] || z.name),
-        type: 'pie', hole: 0.65,
-        marker: { colors: zones.map(z => zoneColors[z.name] || '#555') },
-        textinfo: 'label+text',
-        text: zones.map(z => z.minutes > 0 ? `${z.minutes}分` : ''),
-        textposition: 'outside',
-        textfont: { size: 11, color: '#e6edf3' },
-        hovertemplate: '%{label}<br>%{value}分<br>%{customdata} kcal<extra></extra>',
-        customdata: zones.map(z => Math.round(z.caloriesOut)),
-        sort: false,
-      }]}
-      layout={{
-        margin: { t: 10, r: 10, b: 10, l: 10 },
-        annotations: rhr
-          ? [{ text: `<b>${rhr}</b><br>bpm`, x: 0.5, y: 0.5, font: { size: 22, color: '#ff6b6b' }, showarrow: false }]
-          : [],
-      }}
-    />
+    <ResponsiveContainer width="100%" height={220}>
+      <PieChart>
+        <Pie
+          data={pieData}
+          cx="50%"
+          cy="50%"
+          innerRadius={55}
+          outerRadius={80}
+          dataKey="value"
+          paddingAngle={1}
+          label={({ name, value }) => value > 0 ? `${name} ${value}分` : ''}
+          labelLine={{ stroke: TEXT_COLOR }}
+        >
+          {pieData.map((entry, i) => (
+            <Cell key={i} fill={entry.color} />
+          ))}
+        </Pie>
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const d = payload[0].payload as { name: string; value: number; calories: number };
+            return (
+              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+                <div>{d.name}</div>
+                <div>{d.value}分 / {d.calories} kcal</div>
+              </div>
+            );
+          }}
+        />
+        {/* Center text */}
+        {rhr && (
+          <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fill="#ff6b6b" style={{ fontSize: 22, fontWeight: 700 }}>
+            {rhr}
+            <tspan dx={2} style={{ fontSize: 12, fontWeight: 400 }}>bpm</tspan>
+          </text>
+        )}
+      </PieChart>
+    </ResponsiveContainer>
   );
 }
