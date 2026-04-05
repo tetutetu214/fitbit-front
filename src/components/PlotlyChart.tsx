@@ -1,7 +1,7 @@
-import Plot from 'react-plotly.js';
-import type { Data, Layout } from 'plotly.js';
+import { useRef, useEffect } from 'react';
+import Plotly from 'plotly.js-dist-min';
 
-const baseLayout: Partial<Layout> = {
+const baseLayout: Partial<Plotly.Layout> = {
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { color: '#7d8590', family: '-apple-system,sans-serif', size: 11 },
@@ -13,19 +13,21 @@ const baseLayout: Partial<Layout> = {
 };
 
 interface PlotlyChartProps {
-  data: Data[];
-  layout?: Partial<Layout>;
+  data: Plotly.Data[];
+  layout?: Partial<Plotly.Layout>;
   style?: React.CSSProperties;
 }
 
 export function PlotlyChart({ data, layout, style }: PlotlyChartProps) {
-  return (
-    <Plot
-      data={data}
-      layout={{ ...baseLayout, ...layout }}
-      config={{ responsive: true, displayModeBar: false }}
-      useResizeHandler
-      style={{ width: '100%', height: '100%', ...style }}
-    />
-  );
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const el = ref.current;
+    const mergedLayout = { ...baseLayout, ...layout };
+    Plotly.newPlot(el, data, mergedLayout, { responsive: true, displayModeBar: false });
+    return () => { Plotly.purge(el); };
+  }, [data, layout]);
+
+  return <div ref={ref} style={{ width: '100%', height: '100%', ...style }} />;
 }
