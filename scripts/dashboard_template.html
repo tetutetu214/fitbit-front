@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitbit ヘルスダッシュボード</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117; --card: #161b22; --card2: #1c2333;
+  --text: #e6edf3; --text2: #7d8590; --text3: #484f58;
+  --accent: #00bcd4; --green: #00d68f; --red: #ff6b6b;
+  --orange: #ffb347; --purple: #a78bfa; --border: #21262d;
+  --deep: #1a237e; --light-sleep: #5c6bc0; --rem: #26a69a; --awake: #ef5350;
+  --gold: #ffd700;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); }
+.header { padding:20px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.header h1 { font-size:22px; color:var(--accent); }
+.header .date { color:var(--text2); font-size:13px; }
+
+/* === Summary Cards === */
+.summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:20px 32px; }
+.s-card { background:var(--card); border-radius:10px; padding:16px; border:1px solid var(--border); text-align:center; }
+.s-card .label { font-size:11px; color:var(--text2); letter-spacing:0.5px; margin-bottom:6px; }
+.s-card .val { font-size:32px; font-weight:700; }
+.s-card .unit { font-size:13px; color:var(--text2); }
+.s-card .sub { font-size:11px; color:var(--text2); margin-top:4px; }
+.score-good { color:var(--green); }
+.score-mod { color:var(--orange); }
+.score-poor { color:var(--red); }
+
+/* === Section === */
+.section { padding:0 32px 20px; }
+.section-title { font-size:15px; color:var(--text2); margin:20px 0 12px; letter-spacing:0.5px; border-left:3px solid var(--accent); padding-left:10px; }
+.grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(460px,1fr)); gap:14px; }
+.chart-card { background:var(--card); border-radius:10px; padding:16px; border:1px solid var(--border); }
+.chart-card h3 { font-size:13px; color:var(--text2); margin-bottom:8px; }
+.chart-card .note { font-size:10px; color:var(--text3); margin-top:4px; }
+
+/* === Goal Rings === */
+.goal-rings { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:0 32px 20px; }
+.ring-card { background:var(--card); border-radius:10px; padding:16px; border:1px solid var(--border); text-align:center; }
+.ring-wrap { position:relative; width:100px; height:100px; margin:0 auto 8px; }
+.ring-wrap svg { width:100%; height:100%; transform:rotate(-90deg); }
+.ring-wrap .pct { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:18px; font-weight:700; }
+.ring-label { font-size:11px; color:var(--text2); }
+.ring-detail { font-size:11px; color:var(--text3); margin-top:2px; }
+
+/* === Sleep Timeline === */
+.timeline-wrap { position:relative; height:50px; background:var(--card2); border-radius:6px; overflow:hidden; margin:8px 0; }
+.timeline-bar { position:absolute; top:0; height:100%; }
+.timeline-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); }
+.toggle-btn { font-size:11px; color:var(--accent); background:none; border:1px solid var(--accent); border-radius:4px; padding:2px 8px; cursor:pointer; margin-top:6px; }
+.toggle-btn:hover { background:rgba(0,188,212,0.1); }
+
+@media(max-width:768px) {
+  .grid2 { grid-template-columns:1fr; }
+  .goal-rings { grid-template-columns:repeat(2,1fr); }
+  .summary { grid-template-columns:repeat(2,1fr); }
+  .header,.section,.goal-rings,.summary { padding-left:16px; padding-right:16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Fitbit ヘルスダッシュボード</h1>
+  <div class="date" id="lastUpdate"></div>
+</div>
+
+<div class="summary" id="summaryCards"></div>
+
+<div class="section">
+  <div class="section-title">活動目標の達成率</div>
+</div>
+<div class="goal-rings" id="goalRings"></div>
+
+<div class="section">
+  <div class="section-title">睡眠</div>
+  <div class="grid2">
+    <div class="chart-card">
+      <h3>睡眠タイムライン</h3>
+      <div id="sleepTimeline"></div>
+    </div>
+    <div class="chart-card">
+      <h3>睡眠ステージ推移</h3>
+      <div id="chartSleep"></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">心臓・循環器</div>
+  <div class="grid2">
+    <div class="chart-card">
+      <h3>安静時心拍数</h3>
+      <div id="chartHR"></div>
+    </div>
+    <div class="chart-card">
+      <h3>心拍ゾーン（本日）</h3>
+      <div id="chartHRZone"></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">回復・自律神経</div>
+  <div class="grid2">
+    <div class="chart-card">
+      <h3>HRV（自律神経ゆらぎ）</h3>
+      <div id="chartHRV"></div>
+      <div class="note">※数値は個人差が大きいため、自分自身の推移を参考にしてください</div>
+    </div>
+    <div class="chart-card">
+      <h3>回復スコア</h3>
+      <div id="chartRecovery"></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">血中酸素・歩数</div>
+  <div class="grid2">
+    <div class="chart-card">
+      <h3>血中酸素濃度 (SpO2)</h3>
+      <div id="chartSpO2"></div>
+      <div class="note">※正常範囲: 95〜100%　睡眠中に計測</div>
+    </div>
+    <div class="chart-card">
+      <h3>歩数</h3>
+      <div id="chartSteps"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const D = __DATA_JSON__;
+const L = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+  font:{color:'#7d8590',family:'-apple-system,sans-serif',size:11},
+  margin:{t:8,r:16,b:36,l:44}, xaxis:{gridcolor:'#21262d'}, yaxis:{gridcolor:'#21262d'},
+  hovermode:'x unified', showlegend:false };
+const C = { responsive:true, displayModeBar:false };
+const last = D.dates.length - 1;
+
+// ========== Summary Cards (#24, #25) ==========
+function summary() {
+  if (last < 0) return;
+  document.getElementById('lastUpdate').textContent = '最終更新: ' + D.dates[last];
+  const score = D.recovery_scores[last];
+  const sleepMin = D.sleep_minutes[last];
+  const cards = [
+    { label:'回復スコア', val: score !== null ? Math.round(score) : '—',
+      cls: score >= 67 ? 'score-good' : score >= 34 ? 'score-mod' : score !== null ? 'score-poor' : '',
+      sub: score >= 67 ? '良好' : score >= 34 ? '普通' : score !== null ? '低い' : 'データ不足' },
+    { label:'安静時心拍数', val: D.resting_hr[last] ?? '—', unit:'bpm', color:'#ff6b6b', sub:'正常: 60〜100' },
+    { label:'歩数', val: D.steps[last] > 0 ? D.steps[last].toLocaleString() : '—',
+      color: D.steps[last] >= 10000 ? '#00d68f' : '#4ecdc4',
+      sub: D.steps[last] >= 10000 ? '目標達成!' : '目標: 10,000' },
+    { label:'睡眠', val: sleepMin > 0 ? Math.floor(sleepMin/60)+'h '+sleepMin%60+'m' : '—',
+      color:'#a78bfa', sub: D.sleep_efficiency[last] ? '効率: '+D.sleep_efficiency[last]+'%' : '' },
+    { label:'HRV', val: D.hrv_rmssd[last] !== null ? D.hrv_rmssd[last].toFixed(1) : '—',
+      unit:'ms', color:'#00d68f', sub:'高いほど良好' },
+    { label:'血中酸素', val: D.spo2_avg[last] !== null ? D.spo2_avg[last].toFixed(1) : '—',
+      unit:'%', color:'#00bcd4', sub:'正常: 95〜100%' },
+  ];
+  const el = document.getElementById('summaryCards');
+  cards.forEach(c => {
+    const d = document.createElement('div'); d.className = 's-card';
+    d.innerHTML = '<div class="label">'+c.label+'</div>'
+      + '<div class="val '+(c.cls||'')+'" style="color:'+(c.color||'')+'">'
+      + c.val + (c.unit ? '<span class="unit">'+c.unit+'</span>' : '') + '</div>'
+      + '<div class="sub">'+(c.sub||'')+'</div>';
+    el.appendChild(d);
+  });
+}
+
+// ========== Goal Rings (#27) ==========
+function goalRings() {
+  const goals = D.goals[last] || {};
+  const summary_steps = D.steps[last];
+  const items = [
+    { label:'歩数', actual:summary_steps, goal:goals.steps||10000, unit:'歩' },
+    { label:'距離', actual: 0, goal:goals.distance||8.05, unit:'km', decimals:1 },
+    { label:'消費カロリー', actual:D.active_calories[last]||0, goal:goals.caloriesOut||2244, unit:'kcal' },
+    { label:'活動時間', actual:0, goal:goals.activeMinutes||30, unit:'分' },
+  ];
+  const el = document.getElementById('goalRings');
+  items.forEach(item => {
+    const pct = item.goal > 0 ? Math.min(item.actual / item.goal * 100, 150) : 0;
+    const achieved = pct >= 100;
+    const color = achieved ? '#ffd700' : '#00bcd4';
+    const dashLen = Math.min(pct, 100) / 100 * 251.2;
+    const d = document.createElement('div'); d.className = 'ring-card';
+    d.innerHTML = '<div class="ring-wrap">'
+      + '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#21262d" stroke-width="6"/>'
+      + '<circle cx="50" cy="50" r="40" fill="none" stroke="'+color+'" stroke-width="6" '
+      + 'stroke-dasharray="'+dashLen+' 251.2" stroke-linecap="round"/></svg>'
+      + '<div class="pct" style="color:'+color+'">'+Math.round(pct)+'%</div></div>'
+      + '<div class="ring-label">'+item.label+'</div>'
+      + '<div class="ring-detail">'+(item.decimals?item.actual.toFixed(1):item.actual.toLocaleString())+' / '
+      + (item.decimals?item.goal.toFixed(1):item.goal.toLocaleString())+' '+item.unit+'</div>';
+    el.appendChild(d);
+  });
+}
+
+// ========== Sleep Timeline (#26, #31) ==========
+function sleepTimeline() {
+  const el = document.getElementById('sleepTimeline');
+  const tl = D.sleep_timelines[last];
+  if (!tl || !tl.data || tl.data.length === 0) { el.innerHTML='<div style="color:#7d8590;padding:20px">睡眠データがありません</div>'; return; }
+  const colorMap = { deep:'#1a237e', light:'#5c6bc0', rem:'#26a69a', wake:'#ef5350' };
+  const nameMap = { deep:'深い眠り', light:'浅い眠り', rem:'レム睡眠', wake:'覚醒' };
+  const allData = tl.data;
+  const startTime = new Date(allData[0].dateTime).getTime();
+  const lastEntry = allData[allData.length-1];
+  const endTime = new Date(lastEntry.dateTime).getTime() + lastEntry.seconds * 1000;
+  const totalMs = endTime - startTime;
+
+  function renderBars(data, containerId) {
+    let html = '<div class="timeline-wrap">';
+    data.forEach(d => {
+      const s = new Date(d.dateTime).getTime();
+      const left = (s - startTime) / totalMs * 100;
+      const width = d.seconds * 1000 / totalMs * 100;
+      const mins = Math.round(d.seconds / 60);
+      const time = new Date(d.dateTime).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      html += '<div class="timeline-bar" style="left:'+left+'%;width:'+width+'%;background:'
+        + (colorMap[d.level]||'#555')+'" title="'+( nameMap[d.level]||d.level)+' '+time+' ('+mins+'分)"></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  const startLabel = new Date(startTime).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  const endLabel = new Date(endTime).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+
+  let html = '';
+  html += '<div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">';
+  Object.entries(nameMap).forEach(([k,v]) => {
+    html += '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#7d8590">'
+      + '<span style="width:12px;height:12px;border-radius:2px;background:'+colorMap[k]+'"></span>'+v+'</span>';
+  });
+  html += '</div>';
+  html += renderBars(allData, 'mainTimeline');
+  html += '<div class="timeline-labels"><span>'+startLabel+'</span><span>'+endLabel+'</span></div>';
+
+  if (tl.shortData && tl.shortData.length > 0) {
+    html += '<button class="toggle-btn" onclick="toggleShort()">短い覚醒を表示 ('+tl.shortData.length+'回)</button>';
+    html += '<div id="shortTimeline" style="display:none;margin-top:8px">';
+    html += '<div style="font-size:11px;color:#7d8590;margin-bottom:4px">短い覚醒（30〜120秒）</div>';
+    const merged = [...allData, ...tl.shortData].sort((a,b) => new Date(a.dateTime) - new Date(b.dateTime));
+    html += renderBars(merged, 'mergedTimeline');
+    html += '<div class="timeline-labels"><span>'+startLabel+'</span><span>'+endLabel+'</span></div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+function toggleShort() {
+  const el = document.getElementById('shortTimeline');
+  const btn = el.previousElementSibling;
+  if (el.style.display === 'none') { el.style.display='block'; btn.textContent='短い覚醒を非表示'; }
+  else { el.style.display='none'; btn.textContent=btn.textContent.replace('非表示','表示'); }
+}
+
+// ========== HR Zone Donut (#28) ==========
+function hrZoneDonut() {
+  const zones = D.hr_zones[last] || [];
+  const active = zones.filter(z => z.name !== 'Out of Range' && z.minutes > 0);
+  const rhr = D.resting_hr[last];
+  if (active.length === 0 && !rhr) return;
+
+  const zoneNameMap = {'Fat Burn':'脂肪燃焼帯','Cardio':'有酸素帯','Peak':'最大強度帯','Out of Range':'安静帯'};
+  const zoneColors = {'Fat Burn':'#ffb347','Cardio':'#ff6b6b','Peak':'#e040fb','Out of Range':'#2a2d3a'};
+
+  const labels = zones.map(z => zoneNameMap[z.name]||z.name);
+  const vals = zones.map(z => z.minutes);
+  const colors = zones.map(z => zoneColors[z.name]||'#555');
+  const texts = zones.map(z => z.minutes > 0 ? z.minutes+'分' : '');
+
+  Plotly.newPlot('chartHRZone', [{
+    values: vals, labels: labels, type:'pie', hole:0.65,
+    marker:{colors:colors}, textinfo:'label+text', text:texts,
+    textposition:'outside', textfont:{size:11, color:'#e6edf3'},
+    hovertemplate:'%{label}<br>%{value}分<br>%{customdata} kcal<extra></extra>',
+    customdata: zones.map(z => Math.round(z.caloriesOut)),
+    sort: false,
+  }], {
+    ...L, margin:{t:10,r:10,b:10,l:10},
+    annotations: rhr ? [{text:'<b>'+rhr+'</b><br>bpm', x:0.5, y:0.5, font:{size:22,color:'#ff6b6b'},
+      showarrow:false}] : [],
+  }, C);
+}
+
+// ========== Charts ==========
+function charts() {
+  const dates = D.dates;
+  const vi = (arr) => { const d=[],v=[]; dates.forEach((dt,i)=>{ if(arr[i]!==null&&arr[i]!==0){d.push(dt);v.push(arr[i]);}}); return [d,v]; };
+
+  // HR
+  const [hrd,hrv] = vi(D.resting_hr);
+  Plotly.newPlot('chartHR',[{x:hrd,y:hrv,type:'scatter',mode:'lines+markers+text',
+    text:hrv.map(String),textposition:'top center',textfont:{size:11,color:'#ff6b6b'},
+    line:{color:'#ff6b6b',width:3},marker:{size:7},
+    hovertemplate:'%{x}<br>安静時心拍数: %{y} bpm<extra></extra>'}],
+    {...L,yaxis:{...L.yaxis,title:'bpm'}},C);
+
+  // Steps
+  Plotly.newPlot('chartSteps',[{x:dates,y:D.steps,type:'bar',
+    marker:{color:D.steps.map(s=>s>=10000?'#00d68f':'#4ecdc4'),cornerradius:4},
+    text:D.steps.map(s=>s>0?s.toLocaleString():''),textposition:'outside',
+    textfont:{size:10,color:'#e6edf3'},
+    hovertemplate:'%{x}<br>歩数: %{y:,}<extra></extra>'},
+    {x:dates,y:dates.map(()=>10000),type:'scatter',mode:'lines',
+    line:{color:'#ff6b6b',dash:'dash',width:1},hoverinfo:'skip',name:'目標'}],
+    {...L},C);
+
+  // Sleep Stages
+  Plotly.newPlot('chartSleep',[
+    {x:dates,y:D.deep,type:'bar',name:'深い眠り',marker:{color:'#1a237e'},hovertemplate:'深い眠り: %{y}分<extra></extra>'},
+    {x:dates,y:D.light,type:'bar',name:'浅い眠り',marker:{color:'#5c6bc0'},hovertemplate:'浅い眠り: %{y}分<extra></extra>'},
+    {x:dates,y:D.rem,type:'bar',name:'レム睡眠',marker:{color:'#26a69a'},hovertemplate:'レム睡眠: %{y}分<extra></extra>'},
+    {x:dates,y:D.wake,type:'bar',name:'覚醒',marker:{color:'#ef5350'},hovertemplate:'覚醒: %{y}分<extra></extra>'}],
+    {...L,barmode:'stack',showlegend:true,legend:{orientation:'h',y:1.15,font:{size:10}},
+    yaxis:{...L.yaxis,title:'分'}},C);
+
+  // HRV with range zones (#29)
+  const [hrvd,hrvv] = vi(D.hrv_rmssd);
+  Plotly.newPlot('chartHRV',[{x:hrvd,y:hrvv,type:'scatter',mode:'lines+markers+text',
+    text:hrvv.map(v=>v.toFixed(1)),textposition:'top center',textfont:{size:11,color:'#00d68f'},
+    line:{color:'#00d68f',width:3},marker:{size:7},fill:'tozeroy',fillcolor:'rgba(0,214,143,0.08)',
+    hovertemplate:'%{x}<br>RMSSD: %{y:.1f} ms<extra></extra>'}],
+    {...L,yaxis:{...L.yaxis,title:'RMSSD (ms)'},
+    shapes:[
+      {type:'rect',x0:hrvd[0]||0,x1:hrvd[hrvd.length-1]||1,y0:50,y1:100,fillcolor:'rgba(0,214,143,0.06)',line:{width:0}},
+      {type:'rect',x0:hrvd[0]||0,x1:hrvd[hrvd.length-1]||1,y0:20,y1:50,fillcolor:'rgba(255,179,71,0.06)',line:{width:0}},
+      {type:'rect',x0:hrvd[0]||0,x1:hrvd[hrvd.length-1]||1,y0:0,y1:20,fillcolor:'rgba(255,107,107,0.06)',line:{width:0}}],
+    annotations:[
+      {x:1,y:75,xref:'paper',text:'良好',showarrow:false,font:{size:9,color:'#00d68f'}},
+      {x:1,y:35,xref:'paper',text:'普通',showarrow:false,font:{size:9,color:'#ffb347'}},
+      {x:1,y:10,xref:'paper',text:'低い',showarrow:false,font:{size:9,color:'#ff6b6b'}}]},C);
+
+  // Recovery Score
+  const rd=[],rv=[],rc=[];
+  dates.forEach((d,i)=>{if(D.recovery_scores[i]!==null){rd.push(d);rv.push(D.recovery_scores[i]);
+    rc.push(D.recovery_scores[i]>=67?'#00d68f':D.recovery_scores[i]>=34?'#ffb347':'#ff6b6b');}});
+  Plotly.newPlot('chartRecovery',[{x:rd,y:rv,type:'bar',marker:{color:rc,cornerradius:4},
+    text:rv.map(v=>Math.round(v)),textposition:'outside',textfont:{size:13,color:'#e6edf3'},
+    hovertemplate:'%{x}<br>回復スコア: %{y:.1f}/100<extra></extra>'}],
+    {...L,yaxis:{...L.yaxis,title:'スコア',range:[0,105]},
+    shapes:[
+      {type:'rect',x0:-0.5,x1:rd.length,y0:67,y1:100,fillcolor:'rgba(0,214,143,0.05)',line:{width:0}},
+      {type:'rect',x0:-0.5,x1:rd.length,y0:34,y1:67,fillcolor:'rgba(255,179,71,0.05)',line:{width:0}},
+      {type:'rect',x0:-0.5,x1:rd.length,y0:0,y1:34,fillcolor:'rgba(255,107,107,0.05)',line:{width:0}}],
+    annotations:[
+      {x:1,y:83,xref:'paper',text:'良好',showarrow:false,font:{size:9,color:'#00d68f'}},
+      {x:1,y:50,xref:'paper',text:'普通',showarrow:false,font:{size:9,color:'#ffb347'}},
+      {x:1,y:17,xref:'paper',text:'低い',showarrow:false,font:{size:9,color:'#ff6b6b'}}]},C);
+
+  // SpO2 with range (#29)
+  const [sd,sa] = vi(D.spo2_avg);
+  const smin = sd.map((_,i)=>D.spo2_min[D.dates.indexOf(sd[i])]);
+  const smax = sd.map((_,i)=>D.spo2_max[D.dates.indexOf(sd[i])]);
+  Plotly.newPlot('chartSpO2',[
+    {x:sd,y:smax,type:'scatter',mode:'lines',line:{width:0},showlegend:false,hoverinfo:'skip'},
+    {x:sd,y:smin,type:'scatter',mode:'lines',line:{width:0},fill:'tonexty',
+     fillcolor:'rgba(0,188,212,0.12)',showlegend:false,hoverinfo:'skip'},
+    {x:sd,y:sa,type:'scatter',mode:'lines+markers+text',
+     text:sa.map(v=>v.toFixed(1)+'%'),textposition:'top center',textfont:{size:11,color:'#00bcd4'},
+     line:{color:'#00bcd4',width:3},marker:{size:7},
+     hovertemplate:'%{x}<br>平均: %{y:.1f}%<extra></extra>'}],
+    {...L,yaxis:{...L.yaxis,title:'%',range:[88,101]},
+    shapes:[
+      {type:'rect',x0:sd[0]||0,x1:sd[sd.length-1]||1,y0:95,y1:101,fillcolor:'rgba(0,214,143,0.05)',line:{width:0}},
+      {type:'rect',x0:sd[0]||0,x1:sd[sd.length-1]||1,y0:90,y1:95,fillcolor:'rgba(255,179,71,0.05)',line:{width:0}},
+      {type:'rect',x0:sd[0]||0,x1:sd[sd.length-1]||1,y0:85,y1:90,fillcolor:'rgba(255,107,107,0.05)',line:{width:0}}],
+    annotations:[
+      {x:1,y:98,xref:'paper',text:'正常',showarrow:false,font:{size:9,color:'#00d68f'}},
+      {x:1,y:92,xref:'paper',text:'要注意',showarrow:false,font:{size:9,color:'#ffb347'}}]},C);
+}
+
+summary(); goalRings(); sleepTimeline(); hrZoneDonut(); charts();
+</script>
+</body>
+</html>
