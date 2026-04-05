@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 import requests
 
-DATA_DIR = Path("/app/data")
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 TOKENS_FILE = DATA_DIR / "tokens.json"
 
 SCOPES = [
