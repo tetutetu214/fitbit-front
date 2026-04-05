@@ -6,8 +6,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
+DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
 TOKENS_FILE = DATA_DIR / "tokens.json"
 BASE_URL = "https://api.fitbit.com"
 
