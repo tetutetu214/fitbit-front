@@ -1,6 +1,16 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
 .env
-data/
-tokens.json
+.env.local
+
+# Python (legacy)
 __pycache__/
 *.pyc
 .venv/
+
+# Data
+data/
+tokens.json
