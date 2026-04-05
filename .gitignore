@@ -12,5 +12,5 @@ __pycache__/
 .venv/
 
 # Data
-data/
+/data/
 tokens.json
