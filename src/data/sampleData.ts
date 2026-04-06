@@ -16,7 +16,7 @@ export const sampleData: HealthData = {
   spo2_avg: [97.2, 96.8, 97.5, 96.5, 97.0, 97.3, 96.9],
   spo2_min: [95.0, 94.5, 95.2, 94.0, 95.1, 95.3, 94.8],
   spo2_max: [99.0, 98.5, 99.2, 98.0, 98.8, 99.1, 98.6],
-  recovery_scores: [65, 72, 58, 78, 68, 75, 70],
+  sedentary_minutes: [780, 720, 800, 690, 750, 760, 710],
   sleep_timelines: [
     null, null, null, null, null, null,
     {

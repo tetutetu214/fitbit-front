@@ -37,7 +37,7 @@ export interface HealthData {
   spo2_avg: (number | null)[];
   spo2_min: (number | null)[];
   spo2_max: (number | null)[];
-  recovery_scores: (number | null)[];
+  sedentary_minutes: (number | null)[];
   sleep_timelines: (SleepTimeline | null)[];
   hr_zones: (HRZone[] | null)[];
   goals: (Goals | null)[];

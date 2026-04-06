@@ -162,7 +162,7 @@ export function HRVChart({ data }: ChartsProps) {
         <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" ms" width={52} domain={[0, yMax]} />
-        <Tooltip content={<CustomTooltip formatter={(p) => `RMSSD: ${Number(p.value).toFixed(1)} ms`} />} />
+        <Tooltip content={<CustomTooltip formatter={(p) => `HRV: ${Number(p.value).toFixed(1)} ms`} />} />
         <ReferenceArea y1={50} y2={yMax} fill="rgba(0,214,143,0.06)" ifOverflow="hidden" />
         <ReferenceArea y1={20} y2={50} fill="rgba(255,179,71,0.06)" ifOverflow="hidden" />
         <ReferenceArea y1={0} y2={20} fill="rgba(255,107,107,0.06)" ifOverflow="hidden" />
@@ -170,42 +170,6 @@ export function HRVChart({ data }: ChartsProps) {
           <LabelList dataKey="hrv" position="top" fill="#00d68f" fontSize={11} formatter={(v) => Number(v).toFixed(1)} />
         </Area>
       </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-
-/* ── 回復スコア ── */
-
-export function RecoveryChart({ data }: ChartsProps) {
-  const chartData: Array<{ date: string; score: number; fill: string }> = [];
-  data.dates.forEach((d, i) => {
-    const s = data.recovery_scores[i];
-    if (s !== null) {
-      chartData.push({
-        date: d,
-        score: s,
-        fill: s >= 67 ? '#00d68f' : s >= 34 ? '#ffb347' : '#ff6b6b',
-      });
-    }
-  });
-
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={chartData} margin={{ top: 24, right: 40, bottom: 4, left: 0 }}>
-        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" " width={36} domain={[0, 105]} />
-        <Tooltip content={<CustomTooltip formatter={(p) => `回復スコア: ${Number(p.value).toFixed(1)}/100`} />} />
-        <ReferenceArea y1={67} y2={100} fill="rgba(0,214,143,0.05)" ifOverflow="hidden" />
-        <ReferenceArea y1={34} y2={67} fill="rgba(255,179,71,0.05)" ifOverflow="hidden" />
-        <ReferenceArea y1={0} y2={34} fill="rgba(255,107,107,0.05)" ifOverflow="hidden" />
-        <Bar dataKey="score" radius={[3, 3, 0, 0]}>
-          {chartData.map((entry, i) => (
-            <Cell key={i} fill={entry.fill} />
-          ))}
-          <LabelList dataKey="score" position="top" fill={LABEL_COLOR} fontSize={13} formatter={(v) => Math.round(Number(v))} />
-        </Bar>
-      </BarChart>
     </ResponsiveContainer>
   );
 }

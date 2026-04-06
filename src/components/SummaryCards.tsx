@@ -9,25 +9,10 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   const last = data.dates.length - 1;
   if (last < 0) return null;
 
-  const score = data.recovery_scores[last];
   const sleepMin = data.sleep_minutes[last];
-
-  const scoreClass =
-    score !== null
-      ? score >= 67
-        ? 'text-success'
-        : score >= 34
-          ? 'text-warning'
-          : 'text-danger'
-      : '';
+  const sedentary = data.sedentary_minutes[last];
 
   const cards = [
-    {
-      label: '回復スコア',
-      val: score !== null ? String(Math.round(score)) : '—',
-      cls: scoreClass,
-      sub: score !== null ? (score >= 67 ? '良好' : score >= 34 ? '普通' : '低い') : 'データ不足',
-    },
     {
       label: '安静時心拍数',
       val: data.resting_hr[last] !== null ? String(data.resting_hr[last]) : '—',
@@ -64,6 +49,12 @@ export function SummaryCards({ data }: SummaryCardsProps) {
       color: '#00bcd4',
       sub: '正常: 95〜100%',
     },
+    {
+      label: '座位時間',
+      val: sedentary !== null ? `${Math.floor(sedentary / 60)}h ${sedentary % 60}m` : '—',
+      color: '#7d8590',
+      sub: '長時間の座位に注意',
+    },
   ];
 
   return (
@@ -71,7 +62,7 @@ export function SummaryCards({ data }: SummaryCardsProps) {
       {cards.map((c) => (
         <Card key={c.label} className="text-center">
           <div className="mb-1.5 text-[11px] tracking-wide text-text2">{c.label}</div>
-          <div className={`text-[32px] font-bold ${c.cls ?? ''}`} style={{ color: c.color ?? undefined }}>
+          <div className="text-[32px] font-bold" style={{ color: c.color ?? undefined }}>
             {c.val}
             {c.unit && <span className="text-[13px] text-text2">{c.unit}</span>}
           </div>
