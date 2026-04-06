@@ -1,4 +1,5 @@
 import type { HealthData } from '../types/health';
+import { Card } from './ui/Card';
 
 interface SummaryCardsProps {
   data: HealthData;
@@ -14,10 +15,10 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   const scoreClass =
     score !== null
       ? score >= 67
-        ? 'score-good'
+        ? 'text-success'
         : score >= 34
-          ? 'score-mod'
-          : 'score-poor'
+          ? 'text-warning'
+          : 'text-danger'
       : '';
 
   const cards = [
@@ -66,16 +67,16 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   ];
 
   return (
-    <div className="summary">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 px-8 py-5 max-md:grid-cols-2 max-md:px-4">
       {cards.map((c) => (
-        <div className="s-card" key={c.label}>
-          <div className="label">{c.label}</div>
-          <div className={`val ${c.cls ?? ''}`} style={{ color: c.color ?? undefined }}>
+        <Card key={c.label} className="text-center">
+          <div className="mb-1.5 text-[11px] tracking-wide text-text2">{c.label}</div>
+          <div className={`text-[32px] font-bold ${c.cls ?? ''}`} style={{ color: c.color ?? undefined }}>
             {c.val}
-            {c.unit && <span className="unit">{c.unit}</span>}
+            {c.unit && <span className="text-[13px] text-text2">{c.unit}</span>}
           </div>
-          <div className="sub">{c.sub}</div>
-        </div>
+          <div className="mt-1 text-[11px] text-text2">{c.sub}</div>
+        </Card>
       ))}
     </div>
   );

@@ -1,1 +1,39 @@
-/* Global reset - theme styles are in App.css */
+@import "tailwindcss";
+
+@theme {
+  /* Colors - Background */
+  --color-bg: #0d1117;
+  --color-card: #161b22;
+  --color-card2: #1c2333;
+
+  /* Colors - Text */
+  --color-text: #e6edf3;
+  --color-text2: #7d8590;
+  --color-text3: #484f58;
+
+  /* Colors - Accent & Status */
+  --color-accent: #00bcd4;
+  --color-success: #00d68f;
+  --color-danger: #ff6b6b;
+  --color-warning: #ffb347;
+  --color-purple: #a78bfa;
+  --color-gold: #ffd700;
+
+  /* Colors - Border */
+  --color-border: #21262d;
+
+  /* Colors - Sleep stages */
+  --color-deep: #1a237e;
+  --color-light-sleep: #5c6bc0;
+  --color-rem: #26a69a;
+  --color-awake: #ef5350;
+
+  /* Typography */
+  --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Base styles */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
