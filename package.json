@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "vite",
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "generate": "node scripts/generate_health_json.mjs",
+    "start": "npm run generate && vite",
+    "dev": "npm run generate && vite",
+    "build": "npm run generate && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
