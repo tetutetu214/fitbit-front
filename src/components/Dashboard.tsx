@@ -9,7 +9,6 @@ import {
   StepsChart,
   SleepStagesChart,
   HRVChart,
-  RecoveryChart,
   SpO2Chart,
   HRZoneDonut,
 } from './Charts';
@@ -78,16 +77,12 @@ export function Dashboard({ data }: DashboardProps) {
       </div>
 
       <div className="px-8 pb-5 max-md:px-4">
-        <SectionTitle>回復・自律神経</SectionTitle>
+        <SectionTitle>自律神経</SectionTitle>
         <ChartGrid>
           <Card>
             <CardHeader><CardTitle>HRV（自律神経ゆらぎ）</CardTitle></CardHeader>
             <CardContent><HRVChart data={data} /></CardContent>
             <CardFooter>※数値は個人差が大きいため、自分自身の推移を参考にしてください</CardFooter>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>回復スコア</CardTitle></CardHeader>
-            <CardContent><RecoveryChart data={data} /></CardContent>
           </Card>
         </ChartGrid>
       </div>
