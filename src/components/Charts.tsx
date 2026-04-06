@@ -244,42 +244,52 @@ export function HRZoneDonut({ data }: ChartsProps) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <PieChart>
-        <Pie
-          data={pieData}
-          cx="50%"
-          cy="50%"
-          innerRadius={55}
-          outerRadius={80}
-          dataKey="value"
-          paddingAngle={1}
-          label={({ name, value }) => value > 0 ? `${name} ${value}分` : ''}
-          labelLine={{ stroke: TEXT_COLOR }}
-        >
-          {pieData.map((entry, i) => (
-            <Cell key={i} fill={entry.color} />
-          ))}
-        </Pie>
-        <Tooltip
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const d = payload[0].payload as { name: string; value: number; calories: number };
-            return (
-              <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
-                <div>{d.name}</div>
-                <div>{d.value}分 / {d.calories} kcal</div>
-              </div>
-            );
-          }}
-        />
-        {rhr && (
-          <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fill="#ff6b6b" style={{ fontSize: 22, fontWeight: 700 }}>
-            {rhr}
-            <tspan dx={2} style={{ fontSize: 12, fontWeight: 400 }}>bpm</tspan>
-          </text>
-        )}
-      </PieChart>
-    </ResponsiveContainer>
+    <div className="flex items-center gap-6">
+      <ResponsiveContainer width="50%" height={220}>
+        <PieChart>
+          <Pie
+            data={pieData}
+            cx="50%"
+            cy="50%"
+            innerRadius={55}
+            outerRadius={80}
+            dataKey="value"
+            paddingAngle={1}
+          >
+            {pieData.map((entry, i) => (
+              <Cell key={i} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0].payload as { name: string; value: number; calories: number };
+              return (
+                <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
+                  <div>{d.name}</div>
+                  <div>{d.value}分 / {d.calories} kcal</div>
+                </div>
+              );
+            }}
+          />
+          {rhr && (
+            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fill="#ff6b6b" style={{ fontSize: 22, fontWeight: 700 }}>
+              {rhr}
+              <tspan dx={2} style={{ fontSize: 12, fontWeight: 400 }}>bpm</tspan>
+            </text>
+          )}
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="flex flex-col gap-2 text-xs">
+        {pieData.map((d) => (
+          <div key={d.name} className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm" style={{ background: d.color }} />
+            <span className="text-text2">{d.name}</span>
+            <span className="font-bold text-text">{d.value}分</span>
+            <span className="text-text3">{d.calories} kcal</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
