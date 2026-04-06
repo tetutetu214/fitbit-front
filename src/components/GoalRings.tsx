@@ -1,4 +1,5 @@
 import type { HealthData } from '../types/health';
+import { Card } from './ui/Card';
 
 interface GoalRingsProps {
   data: HealthData;
@@ -17,7 +18,7 @@ export function GoalRings({ data }: GoalRingsProps) {
   ];
 
   return (
-    <div className="goal-rings">
+    <div className="grid grid-cols-4 gap-3 px-8 pb-5 max-md:grid-cols-2 max-md:px-4">
       {items.map((item) => {
         const pct = item.goal > 0 ? Math.min((item.actual / item.goal) * 100, 150) : 0;
         const achieved = pct >= 100;
@@ -25,9 +26,9 @@ export function GoalRings({ data }: GoalRingsProps) {
         const dashLen = (Math.min(pct, 100) / 100) * 251.2;
 
         return (
-          <div className="ring-card" key={item.label}>
-            <div className="ring-wrap">
-              <svg viewBox="0 0 100 100">
+          <Card key={item.label} className="text-center">
+            <div className="relative mx-auto mb-2 h-[100px] w-[100px]">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#21262d" strokeWidth="6" />
                 <circle
                   cx="50" cy="50" r="40" fill="none"
@@ -36,16 +37,18 @@ export function GoalRings({ data }: GoalRingsProps) {
                   strokeLinecap="round"
                 />
               </svg>
-              <div className="pct" style={{ color }}>{Math.round(pct)}%</div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-bold" style={{ color }}>
+                {Math.round(pct)}%
+              </div>
             </div>
-            <div className="ring-label">{item.label}</div>
-            <div className="ring-detail">
+            <div className="text-[11px] text-text2">{item.label}</div>
+            <div className="mt-0.5 text-[11px] text-text3">
               {item.decimals ? item.actual.toFixed(1) : item.actual.toLocaleString()}
               {' / '}
               {item.decimals ? item.goal.toFixed(1) : item.goal.toLocaleString()}
               {' '}{item.unit}
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

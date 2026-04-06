@@ -20,7 +20,6 @@ const GRID_COLOR = '#21262d';
 const TEXT_COLOR = '#7d8590';
 const LABEL_COLOR = '#e6edf3';
 
-/** カスタムTooltip共通コンポーネント */
 function CustomTooltip({ active, payload, formatter }: {
   active?: boolean;
   payload?: Array<{ value: number; name: string; color: string; payload: Record<string, unknown> }>;
@@ -29,22 +28,17 @@ function CustomTooltip({ active, payload, formatter }: {
   if (!active || !payload?.length) return null;
   const item = payload[0];
   return (
-    <div style={{
-      background: '#1c2333', border: '1px solid #21262d', borderRadius: 6,
-      padding: '6px 10px', fontSize: 12, color: '#e6edf3',
-    }}>
+    <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
       {formatter(item)}
     </div>
   );
 }
 
-/** 日付ラベルを短縮 (MM/DD) */
 function shortDate(d: string) {
   const m = d.match(/(\d+)-(\d+)$/);
   return m ? `${parseInt(m[1])}/${parseInt(m[2])}` : d;
 }
 
-/** 有効なデータだけを抽出するヘルパー */
 function validItems<T>(dates: string[], arr: (T | null)[]): [string[], T[]] {
   const d: string[] = [];
   const v: T[] = [];
@@ -135,7 +129,7 @@ export function SleepStagesChart({ data }: ChartsProps) {
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             return (
-              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+              <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
                 {payload.map((p, i) => (
                   <div key={i} style={{ color: p.color }}>{p.name}: {p.value as number}分</div>
                 ))}
@@ -169,7 +163,6 @@ export function HRVChart({ data }: ChartsProps) {
         <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" ms" width={52} domain={[0, yMax]} />
         <Tooltip content={<CustomTooltip formatter={(p) => `RMSSD: ${Number(p.value).toFixed(1)} ms`} />} />
-        {/* Zone backgrounds */}
         <ReferenceArea y1={50} y2={yMax} fill="rgba(0,214,143,0.06)" ifOverflow="hidden" />
         <ReferenceArea y1={20} y2={50} fill="rgba(255,179,71,0.06)" ifOverflow="hidden" />
         <ReferenceArea y1={0} y2={20} fill="rgba(255,107,107,0.06)" ifOverflow="hidden" />
@@ -203,7 +196,6 @@ export function RecoveryChart({ data }: ChartsProps) {
         <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: TEXT_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} unit=" " width={36} domain={[0, 105]} />
         <Tooltip content={<CustomTooltip formatter={(p) => `回復スコア: ${Number(p.value).toFixed(1)}/100`} />} />
-        {/* Zone backgrounds */}
         <ReferenceArea y1={67} y2={100} fill="rgba(0,214,143,0.05)" ifOverflow="hidden" />
         <ReferenceArea y1={34} y2={67} fill="rgba(255,179,71,0.05)" ifOverflow="hidden" />
         <ReferenceArea y1={0} y2={34} fill="rgba(255,107,107,0.05)" ifOverflow="hidden" />
@@ -243,7 +235,7 @@ export function SpO2Chart({ data }: ChartsProps) {
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as { avg: number; min: number | null; max: number | null };
             return (
-              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+              <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
                 <div>平均: {d.avg.toFixed(1)}%</div>
                 {d.min != null && <div>最低: {d.min.toFixed(1)}%</div>}
                 {d.max != null && <div>最高: {d.max.toFixed(1)}%</div>}
@@ -251,14 +243,11 @@ export function SpO2Chart({ data }: ChartsProps) {
             );
           }}
         />
-        {/* Zone backgrounds */}
         <ReferenceArea y1={95} y2={101} fill="rgba(0,214,143,0.05)" ifOverflow="hidden" />
         <ReferenceArea y1={90} y2={95} fill="rgba(255,179,71,0.05)" ifOverflow="hidden" />
         <ReferenceArea y1={85} y2={90} fill="rgba(255,107,107,0.05)" ifOverflow="hidden" />
-        {/* Min-Max range */}
         <Area type="monotone" dataKey="max" stroke="none" fill="rgba(0,188,212,0.12)" activeDot={false} />
         <Area type="monotone" dataKey="min" stroke="none" fill="#161b22" activeDot={false} />
-        {/* Average line */}
         <Area type="monotone" dataKey="avg" stroke="#00bcd4" strokeWidth={3} fill="none" dot={{ r: 4, fill: '#00bcd4' }} activeDot={{ r: 6 }}>
           <LabelList dataKey="avg" position="top" fill="#00bcd4" fontSize={11} formatter={(v) => `${Number(v).toFixed(1)}%`} />
         </Area>
@@ -313,14 +302,13 @@ export function HRZoneDonut({ data }: ChartsProps) {
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as { name: string; value: number; calories: number };
             return (
-              <div style={{ background: '#1c2333', border: '1px solid #21262d', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e6edf3' }}>
+              <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
                 <div>{d.name}</div>
                 <div>{d.value}分 / {d.calories} kcal</div>
               </div>
             );
           }}
         />
-        {/* Center text */}
         {rhr && (
           <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fill="#ff6b6b" style={{ fontSize: 22, fontWeight: 700 }}>
             {rhr}

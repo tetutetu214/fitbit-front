@@ -16,7 +16,7 @@ export function SleepTimeline({ timeline }: SleepTimelineProps) {
   const [showShort, setShowShort] = useState(false);
 
   if (!timeline || !timeline.data || timeline.data.length === 0) {
-    return <div style={{ color: '#7d8590', padding: 20 }}>睡眠データがありません</div>;
+    return <div className="p-5 text-text2">睡眠データがありません</div>;
   }
 
   const allData = timeline.data;
@@ -29,7 +29,7 @@ export function SleepTimeline({ timeline }: SleepTimelineProps) {
   const endLabel = new Date(endTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
   const renderBars = (entries: SleepTimelineEntry[]) => (
-    <div className="timeline-wrap">
+    <div className="relative my-2 h-[50px] overflow-hidden rounded-md bg-card2">
       {entries.map((d, i) => {
         const s = new Date(d.dateTime).getTime();
         const left = ((s - startTime) / totalMs) * 100;
@@ -39,7 +39,7 @@ export function SleepTimeline({ timeline }: SleepTimelineProps) {
         return (
           <div
             key={i}
-            className="timeline-bar"
+            className="absolute top-0 h-full"
             style={{
               left: `${left}%`,
               width: `${width}%`,
@@ -60,33 +60,36 @@ export function SleepTimeline({ timeline }: SleepTimelineProps) {
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+      <div className="mb-2 flex flex-wrap gap-3">
         {Object.entries(nameMap).map(([k, v]) => (
-          <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#7d8590' }}>
-            <span style={{ width: 12, height: 12, borderRadius: 2, background: colorMap[k] }} />
+          <span key={k} className="flex items-center gap-1 text-[11px] text-text2">
+            <span className="h-3 w-3 rounded-sm" style={{ background: colorMap[k] }} />
             {v}
           </span>
         ))}
       </div>
 
       {renderBars(allData)}
-      <div className="timeline-labels">
+      <div className="flex justify-between text-[10px] text-text3">
         <span>{startLabel}</span>
         <span>{endLabel}</span>
       </div>
 
       {timeline.shortData && timeline.shortData.length > 0 && (
         <>
-          <button className="toggle-btn" onClick={() => setShowShort((p) => !p)}>
+          <button
+            className="mt-1.5 cursor-pointer rounded border border-accent bg-transparent px-2 py-0.5 text-[11px] text-accent hover:bg-accent/10"
+            onClick={() => setShowShort((p) => !p)}
+          >
             {showShort ? '短い覚醒を非表示' : `短い覚醒を表示 (${timeline.shortData.length}回)`}
           </button>
           {showShort && merged && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 4 }}>
+            <div className="mt-2">
+              <div className="mb-1 text-[11px] text-text2">
                 短い覚醒（30〜120秒）
               </div>
               {renderBars(merged)}
-              <div className="timeline-labels">
+              <div className="flex justify-between text-[10px] text-text3">
                 <span>{startLabel}</span>
                 <span>{endLabel}</span>
               </div>
