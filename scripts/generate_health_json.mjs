@@ -13,7 +13,33 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 
 const DATA_DIR = process.env.DATA_DIR || resolve(PROJECT_ROOT, 'data');
 const DAILY_DIR = resolve(DATA_DIR, 'daily');
+const TANITA_DIR = resolve(DATA_DIR, 'daily_tanita');
 const OUTPUT_DIR = resolve(PROJECT_ROOT, 'public', 'data');
+
+function loadTanitaByDate() {
+  const byDate = {};
+  if (!existsSync(TANITA_DIR)) return byDate;
+  const files = readdirSync(TANITA_DIR).filter(f => f.endsWith('.json'));
+  for (const f of files) {
+    const dateStr = f.replace('.json', '');
+    try {
+      const json = JSON.parse(readFileSync(resolve(TANITA_DIR, f), 'utf-8'));
+      const measurements = json.measurements ?? {};
+      const timestamps = Object.keys(measurements).sort();
+      let weight = null;
+      let bodyFat = null;
+      for (const ts of timestamps) {
+        const m = measurements[ts];
+        if (typeof m.weight === 'number') weight = m.weight;
+        if (typeof m.body_fat === 'number') bodyFat = m.body_fat;
+      }
+      byDate[dateStr] = { weight, body_fat: bodyFat };
+    } catch {
+      // ignore
+    }
+  }
+  return byDate;
+}
 
 function loadDailyData() {
   if (!existsSync(DAILY_DIR)) {
@@ -48,7 +74,11 @@ function extractMetrics(data) {
     sleep_timelines: [],
     hr_zones: [],
     goals: [],
+    weight: [],
+    body_fat: [],
   };
+
+  const tanitaByDate = loadTanitaByDate();
 
   for (const [dateStr, day] of Object.entries(data)) {
     metrics.dates.push(dateStr);
@@ -118,6 +148,10 @@ function extractMetrics(data) {
     } else {
       metrics.recovery_scores.push(null);
     }
+
+    const tanita = tanitaByDate[dateStr];
+    metrics.weight.push(tanita?.weight ?? null);
+    metrics.body_fat.push(tanita?.body_fat ?? null);
   }
 
   return metrics;
