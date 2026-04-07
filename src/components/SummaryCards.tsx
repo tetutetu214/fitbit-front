@@ -12,6 +12,16 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   const sleepMin = data.sleep_minutes[last];
   const sedentary = data.sedentary_minutes[last];
 
+  const findLatest = (arr: (number | null)[] | undefined) => {
+    if (!arr) return null;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i] !== null && arr[i] !== undefined) return arr[i];
+    }
+    return null;
+  };
+  const weight = findLatest(data.weight);
+  const bodyFat = findLatest(data.body_fat);
+
   const cards = [
     {
       label: '安静時心拍数',
@@ -54,6 +64,20 @@ export function SummaryCards({ data }: SummaryCardsProps) {
       val: sedentary !== null ? `${Math.floor(sedentary / 60)}h ${sedentary % 60}m` : '—',
       color: '#7d8590',
       sub: '長時間の座位に注意',
+    },
+    {
+      label: '体重',
+      val: weight !== null ? weight.toFixed(1) : '—',
+      unit: 'kg',
+      color: '#f6c177',
+      sub: 'TANITA 計測',
+    },
+    {
+      label: '体脂肪率',
+      val: bodyFat !== null ? bodyFat.toFixed(1) : '—',
+      unit: '%',
+      color: '#eb6f92',
+      sub: 'TANITA 計測',
     },
   ];
 

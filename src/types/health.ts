@@ -41,4 +41,6 @@ export interface HealthData {
   sleep_timelines: (SleepTimeline | null)[];
   hr_zones: (HRZone[] | null)[];
   goals: (Goals | null)[];
+  weight: (number | null)[];
+  body_fat: (number | null)[];
 }
