@@ -1,5 +1,6 @@
 import type { HealthData } from '../types/health';
 import { Header } from './Header';
+import { HeroScore } from './HeroScore';
 import { SummaryCards } from './SummaryCards';
 import { GoalRings } from './GoalRings';
 import { SleepTimeline } from './SleepTimeline';
@@ -39,6 +40,7 @@ export function Dashboard({ data }: DashboardProps) {
   return (
     <>
       <Header lastDate={last >= 0 ? data.dates[last] : ''} />
+      <HeroScore data={data} />
       <SummaryCards data={data} />
 
       <div className="px-8 max-md:px-4">
