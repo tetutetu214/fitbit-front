@@ -43,6 +43,7 @@ function extractMetrics(data) {
     sleep_minutes: [], sleep_efficiency: [],
     deep: [], light: [], rem: [], wake: [],
     hrv_rmssd: [], spo2_avg: [], spo2_min: [], spo2_max: [],
+    sedentary_minutes: [],
     recovery_scores: [],
     sleep_timelines: [],
     hr_zones: [],
@@ -63,6 +64,7 @@ function extractMetrics(data) {
     const summary = day.activity?.summary ?? {};
     metrics.steps.push(summary.steps ?? 0);
     metrics.active_calories.push(summary.activityCalories ?? 0);
+    metrics.sedentary_minutes.push(summary.sedentaryMinutes ?? null);
     metrics.goals.push(day.activity?.goals ?? null);
 
     const sleepSummary = day.sleep?.summary ?? {};

@@ -9,8 +9,8 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   const last = data.dates.length - 1;
   if (last < 0) return null;
 
-  const sleepMin = data.sleep_minutes[last];
-  const sedentary = data.sedentary_minutes[last];
+  const sleepMin = data.sleep_minutes?.[last] ?? 0;
+  const sedentary = data.sedentary_minutes?.[last] ?? null;
 
   const cards = [
     {
