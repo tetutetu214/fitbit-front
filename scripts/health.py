@@ -8,12 +8,18 @@
 参照: https://www.healthplanet.jp/apis/api.html
 """
 
+import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv, set_key
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
+TANITA_DIR = DATA_DIR / "daily_tanita"
 
 # ── 定数 ────────────────────────────────────────────────
 REDIRECT_URI = "https://www.healthplanet.jp/success.html"
@@ -238,6 +244,67 @@ def _parse_and_display(data: dict) -> None:
     print(f"\n合計 {len(by_date)} 件")
 
 
+# ── 保存 ─────────────────────────────────────────────────
+
+def save_daily_tanita(data: dict) -> None:
+    """APIレスポンスを日付ごとに data/daily_tanita/YYYY-MM-DD.json に保存する。
+
+    同日に既存ファイルがあれば測定時刻 (datetime) をキーにマージする。
+    """
+    records = data.get("data", [])
+    if not records:
+        print("保存対象のデータがありません。")
+        return
+
+    profile = {
+        "sex": data.get("sex", ""),
+        "height": data.get("height", ""),
+        "birth_date": data.get("birth_date", ""),
+    }
+
+    # 日付 → {datetime: {weight, body_fat}}
+    by_day: dict[str, dict[str, dict]] = {}
+    for item in records:
+        dt = datetime.strptime(item["date"], "%Y%m%d%H%M")
+        day = dt.strftime("%Y-%m-%d")
+        ts = dt.strftime("%Y-%m-%d %H:%M")
+        tag = item["tag"]
+        value = float(item["keydata"])
+        by_day.setdefault(day, {}).setdefault(ts, {})
+        if tag == TAG_WEIGHT:
+            by_day[day][ts]["weight"] = value
+        elif tag == TAG_BODY_FAT:
+            by_day[day][ts]["body_fat"] = value
+
+    TANITA_DIR.mkdir(parents=True, exist_ok=True)
+
+    for day, measurements in by_day.items():
+        filepath = TANITA_DIR / f"{day}.json"
+
+        # 既存ファイルがあればマージ
+        existing: dict = {}
+        if filepath.exists():
+            try:
+                existing = json.loads(filepath.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                existing = {}
+
+        merged_measurements = existing.get("measurements", {})
+        for ts, vals in measurements.items():
+            merged_measurements.setdefault(ts, {}).update(vals)
+
+        payload = {
+            "date": day,
+            "profile": profile,
+            "measurements": dict(sorted(merged_measurements.items())),
+        }
+        filepath.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"  保存: {filepath}")
+
+
 # ── エントリポイント ──────────────────────────────────────
 
 def main() -> None:
@@ -261,6 +328,7 @@ def main() -> None:
         sys.exit(1)
 
     _parse_and_display(data)
+    save_daily_tanita(data)
 
 
 if __name__ == "__main__":
