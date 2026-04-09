@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { HealthData } from '../types/health';
 import { Card } from './ui/Card';
 
@@ -11,6 +11,7 @@ interface Contributor {
   score: number;
   weight: number;
   detail: string;
+  baseline: string;
 }
 
 function avg(values: (number | null)[]): number | null {
@@ -23,17 +24,33 @@ function clamp(n: number, min = 0, max = 100): number {
   return Math.max(min, Math.min(max, n));
 }
 
+function signed(n: number): string {
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 function computeContributors(data: HealthData): Contributor[] {
   const last = data.dates.length - 1;
   if (last < 0) return [];
 
-  // Sleep: 480 min target, weight efficiency
+  // Sleep duration: 480 min (8h) target
   const sleepMin = data.sleep_minutes[last] ?? 0;
+  const sleepDurTarget = 480;
+  const sleepDurScore = clamp((sleepMin / sleepDurTarget) * 100);
+  const sleepHours = Math.floor(sleepMin / 60);
+  const sleepRemMin = sleepMin % 60;
+  const sleepDiffMin = sleepMin - sleepDurTarget;
+
+  // Sleep efficiency: target 90%
   const sleepEff = data.sleep_efficiency[last] ?? null;
-  const sleepDurScore = clamp((sleepMin / 480) * 100);
-  const sleepScore = sleepEff !== null
-    ? clamp(sleepDurScore * 0.6 + sleepEff * 0.4)
-    : sleepDurScore;
+  const sleepEffTarget = 90;
+  const sleepEffScore = sleepEff !== null
+    ? clamp(50 + (sleepEff - sleepEffTarget) * 5)
+    : 50;
+
+  // Deep sleep: target 90 min
+  const deepMin = data.deep[last] ?? 0;
+  const deepTarget = 90;
+  const deepScore = clamp((deepMin / deepTarget) * 100);
 
   // HRV: compare last vs personal baseline (mean of series)
   const hrvBaseline = avg(data.hrv_rmssd);
@@ -41,6 +58,9 @@ function computeContributors(data: HealthData): Contributor[] {
   const hrvScore = hrvLast !== null && hrvBaseline !== null && hrvBaseline > 0
     ? clamp(50 + ((hrvLast - hrvBaseline) / hrvBaseline) * 100)
     : 50;
+  const hrvDiffPct = hrvLast !== null && hrvBaseline !== null && hrvBaseline > 0
+    ? Math.round(((hrvLast - hrvBaseline) / hrvBaseline) * 100)
+    : null;
 
   // Resting HR: lower vs baseline is better
   const rhrBaseline = avg(data.resting_hr);
@@ -48,35 +68,63 @@ function computeContributors(data: HealthData): Contributor[] {
   const rhrScore = rhrLast !== null && rhrBaseline !== null && rhrBaseline > 0
     ? clamp(50 - ((rhrLast - rhrBaseline) / rhrBaseline) * 100)
     : 50;
+  const rhrDiff = rhrLast !== null && rhrBaseline !== null
+    ? rhrLast - Math.round(rhrBaseline)
+    : null;
 
-  // Activity: steps vs 10k
+  // Activity: steps vs daily goal (default 10k)
+  const stepsGoal = data.goals[last]?.steps ?? 10000;
   const steps = data.steps[last] ?? 0;
-  const activityScore = clamp((steps / 10000) * 100);
+  const activityScore = clamp((steps / stepsGoal) * 100);
 
   return [
     {
-      label: '睡眠',
-      score: Math.round(sleepScore),
-      weight: 0.35,
-      detail: `${Math.floor(sleepMin / 60)}h ${sleepMin % 60}m${sleepEff !== null ? ` / 効率 ${sleepEff}%` : ''}`,
+      label: '睡眠時間',
+      score: Math.round(sleepDurScore),
+      weight: 0.25,
+      detail: `${sleepHours}時間${sleepRemMin}分`,
+      baseline: `目標 ${sleepDurTarget / 60}時間に対し ${signed(sleepDiffMin)}分`,
+    },
+    {
+      label: '睡眠効率',
+      score: Math.round(sleepEffScore),
+      weight: 0.1,
+      detail: sleepEff !== null ? `${sleepEff}%` : '—',
+      baseline: sleepEff !== null
+        ? `目標 ${sleepEffTarget}% に対し ${signed(sleepEff - sleepEffTarget)}pt`
+        : 'データなし',
+    },
+    {
+      label: '深い睡眠',
+      score: Math.round(deepScore),
+      weight: 0.1,
+      detail: `${deepMin}分`,
+      baseline: `目標 ${deepTarget}分に対し ${signed(deepMin - deepTarget)}分`,
     },
     {
       label: 'HRV',
       score: Math.round(hrvScore),
-      weight: 0.25,
+      weight: 0.2,
       detail: hrvLast !== null ? `${hrvLast.toFixed(1)} ms` : '—',
+      baseline: hrvBaseline !== null && hrvDiffPct !== null
+        ? `平均 ${hrvBaseline.toFixed(1)} ms に対し ${signed(hrvDiffPct)}%`
+        : 'データなし',
     },
     {
       label: '安静時心拍',
       score: Math.round(rhrScore),
-      weight: 0.2,
+      weight: 0.15,
       detail: rhrLast !== null ? `${rhrLast} bpm` : '—',
+      baseline: rhrBaseline !== null && rhrDiff !== null
+        ? `平均 ${Math.round(rhrBaseline)} bpm に対し ${signed(rhrDiff)} bpm`
+        : 'データなし',
     },
     {
       label: 'アクティビティ',
       score: Math.round(activityScore),
       weight: 0.2,
       detail: `${steps.toLocaleString()} 歩`,
+      baseline: `目標 ${stepsGoal.toLocaleString()} 歩に対し ${Math.round((steps / stepsGoal) * 100)}%`,
     },
   ];
 }
@@ -85,6 +133,16 @@ function zoneFor(score: number): { color: string; ring: string; label: string } 
   if (score >= 85) return { color: '#10b981', ring: '#10b981', label: '最適' };
   if (score >= 70) return { color: '#f59e0b', ring: '#f59e0b', label: '良好' };
   return { color: '#f43f5e', ring: '#f43f5e', label: '要注意' };
+}
+
+/**
+ * Zone palette for ContributorList progress bars.
+ * Blue = optimal, Orange = caution, Red = needs improvement.
+ */
+function contributorZoneFor(score: number): { color: string } {
+  if (score >= 85) return { color: '#00bcd4' };
+  if (score >= 70) return { color: '#ffb347' };
+  return { color: '#ff6b6b' };
 }
 
 function contextMessage(score: number, contributors: Contributor[]): string {
@@ -144,6 +202,56 @@ function ScoreRing({ score, color }: ScoreRingProps) {
   );
 }
 
+interface ContributorListProps {
+  contributors: Contributor[];
+}
+
+function ContributorList({ contributors }: ContributorListProps) {
+  // Start progress bars at 0 and animate to their target width after mount
+  // so the fill-in animation plays every time the sheet opens.
+  const [animated, setAnimated] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimated(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <ul className="space-y-4">
+      {contributors.map((c, i) => {
+        const z = contributorZoneFor(c.score);
+        return (
+          <li key={c.label}>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-sm font-medium text-text">{c.label}</span>
+              <span className="text-xs text-text2">{c.detail}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#262b33]">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: animated ? `${c.score}%` : '0%',
+                    backgroundColor: z.color,
+                    transition: `width 0.9s cubic-bezier(0.22, 1, 0.36, 1) ${i * 80}ms`,
+                  }}
+                />
+              </div>
+              <span
+                className="w-8 text-right text-sm font-semibold"
+                style={{ color: z.color }}
+              >
+                {c.score}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-text3">{c.baseline}</div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 interface DetailSheetProps {
   contributors: Contributor[];
   onClose: () => void;
@@ -161,7 +269,7 @@ function DetailSheet({ contributors, onClose }: DetailSheetProps) {
         className="w-full max-w-md rounded-t-2xl border border-border bg-card p-5 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-text">Contributors</h3>
           <button
             onClick={onClose}
@@ -171,36 +279,7 @@ function DetailSheet({ contributors, onClose }: DetailSheetProps) {
             ✕
           </button>
         </div>
-        <ul className="space-y-3">
-          {contributors.map((c) => {
-            const z = zoneFor(c.score);
-            return (
-              <li key={c.label}>
-                <div className="mb-1 flex items-baseline justify-between">
-                  <span className="text-sm text-text">{c.label}</span>
-                  <span className="text-xs text-text2">
-                    {c.detail} · 重み {Math.round(c.weight * 100)}%
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#262b33]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${c.score}%`,
-                        backgroundColor: z.color,
-                        transition: 'width 0.8s ease-out',
-                      }}
-                    />
-                  </div>
-                  <span className="w-8 text-right text-sm font-semibold" style={{ color: z.color }}>
-                    {c.score}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <ContributorList contributors={contributors} />
       </div>
     </div>
   );
