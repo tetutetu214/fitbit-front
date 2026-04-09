@@ -56,4 +56,6 @@ export const sampleData: HealthData = {
     null, null, null, null, null, null,
     { steps: 10000, distance: 8.05, caloriesOut: 2244, activeMinutes: 30 },
   ],
+  weight: [68.4, 68.2, 68.5, 68.1, 67.9, 68.0, 67.8],
+  body_fat: [18.2, 18.1, 18.3, 18.0, 17.8, 17.9, 17.7],
 };
