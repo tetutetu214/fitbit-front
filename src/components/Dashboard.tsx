@@ -12,6 +12,7 @@ import {
   HRVChart,
   SpO2Chart,
   HRZoneDonut,
+  BodyCompositionChart,
 } from './Charts';
 
 interface DashboardProps {
@@ -100,6 +101,17 @@ export function Dashboard({ data }: DashboardProps) {
           <Card>
             <CardHeader><CardTitle>歩数</CardTitle></CardHeader>
             <CardContent><StepsChart data={data} /></CardContent>
+          </Card>
+        </ChartGrid>
+      </div>
+
+      <div className="px-8 pb-5 max-md:px-4">
+        <SectionTitle>体組成</SectionTitle>
+        <ChartGrid>
+          <Card>
+            <CardHeader><CardTitle>体重・体脂肪率の推移</CardTitle></CardHeader>
+            <CardContent><BodyCompositionChart data={data} /></CardContent>
+            <CardFooter>※TANITA 体組成計のデータ</CardFooter>
           </Card>
         </ChartGrid>
       </div>

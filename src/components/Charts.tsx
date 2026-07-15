@@ -1,5 +1,6 @@
 import {
   ResponsiveContainer,
+  ComposedChart,
   LineChart, Line,
   BarChart, Bar,
   AreaChart, Area,
@@ -291,5 +292,112 @@ export function HRZoneDonut({ data }: ChartsProps) {
         ))}
       </div>
     </div>
+  );
+}
+
+/* ── 体組成（体重・体脂肪率） ── */
+
+const WEIGHT_COLOR = '#f6c177';
+const BODY_FAT_COLOR = '#eb6f92';
+
+export function BodyCompositionChart({ data }: ChartsProps) {
+  const chartData = data.dates
+    .map((d, i) => ({
+      date: d,
+      weight: data.weight[i],
+      body_fat: data.body_fat[i],
+    }))
+    .filter((row) => row.weight !== null || row.body_fat !== null);
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex h-[220px] items-center justify-center text-xs text-text2">
+        TANITA データがありません
+      </div>
+    );
+  }
+
+  const weights = chartData.map((d) => d.weight).filter((v): v is number => v !== null);
+  const fats = chartData.map((d) => d.body_fat).filter((v): v is number => v !== null);
+  const wMin = weights.length > 0 ? Math.floor(Math.min(...weights) - 1) : 0;
+  const wMax = weights.length > 0 ? Math.ceil(Math.max(...weights) + 1) : 100;
+  const fMin = fats.length > 0 ? Math.floor(Math.min(...fats) - 1) : 0;
+  const fMax = fats.length > 0 ? Math.ceil(Math.max(...fats) + 1) : 50;
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={chartData} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={shortDate}
+          tick={{ fill: TEXT_COLOR, fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          yAxisId="weight"
+          orientation="left"
+          domain={[wMin, wMax]}
+          tick={{ fill: WEIGHT_COLOR, fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          unit=" kg"
+          width={56}
+        />
+        <YAxis
+          yAxisId="bodyFat"
+          orientation="right"
+          domain={[fMin, fMax]}
+          tick={{ fill: BODY_FAT_COLOR, fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          unit="%"
+          width={44}
+        />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const d = payload[0].payload as { weight: number | null; body_fat: number | null };
+            return (
+              <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
+                {d.weight !== null && (
+                  <div style={{ color: WEIGHT_COLOR }}>体重: {d.weight.toFixed(1)} kg</div>
+                )}
+                {d.body_fat !== null && (
+                  <div style={{ color: BODY_FAT_COLOR }}>体脂肪率: {d.body_fat.toFixed(1)} %</div>
+                )}
+              </div>
+            );
+          }}
+        />
+        <Legend
+          verticalAlign="top"
+          wrapperStyle={{ fontSize: 10, color: TEXT_COLOR, paddingBottom: 8 }}
+        />
+        <Line
+          yAxisId="weight"
+          type="monotone"
+          dataKey="weight"
+          name="体重"
+          stroke={WEIGHT_COLOR}
+          strokeWidth={3}
+          dot={{ r: 4, fill: WEIGHT_COLOR }}
+          activeDot={{ r: 6 }}
+          connectNulls
+        />
+        <Line
+          yAxisId="bodyFat"
+          type="monotone"
+          dataKey="body_fat"
+          name="体脂肪率"
+          stroke={BODY_FAT_COLOR}
+          strokeWidth={3}
+          dot={{ r: 4, fill: BODY_FAT_COLOR }}
+          activeDot={{ r: 6 }}
+          connectNulls
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }
