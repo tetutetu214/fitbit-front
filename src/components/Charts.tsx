@@ -384,7 +384,8 @@ export function BodyCompositionChart({ data }: ChartsProps) {
         />
         <Legend
           verticalAlign="top"
-          wrapperStyle={{ fontSize: 10, color: TEXT_COLOR, paddingBottom: 8 }}
+          formatter={(value) => <span style={{ color: TEXT_COLOR }}>{value}</span>}
+          wrapperStyle={{ fontSize: 10, paddingBottom: 8 }}
         />
         <Line
           yAxisId="weight"
