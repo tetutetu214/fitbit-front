@@ -105,8 +105,8 @@ export function StepsChart({ data }: ChartsProps) {
 /* ── 睡眠ステージ ── */
 
 const SLEEP_STAGES = [
-  { key: 'deep', name: '深い眠り', color: '#1a237e' },
-  { key: 'light', name: '浅い眠り', color: '#5c6bc0' },
+  { key: 'deep', name: '深い眠り', color: '#3949ab' },
+  { key: 'light', name: '浅い眠り', color: '#9fa8da' },
   { key: 'rem', name: 'レム睡眠', color: '#26a69a' },
   { key: 'wake', name: '覚醒', color: '#ef5350' },
 ] as const;
@@ -140,7 +140,8 @@ export function SleepStagesChart({ data }: ChartsProps) {
         />
         <Legend
           verticalAlign="top"
-          wrapperStyle={{ fontSize: 10, color: TEXT_COLOR, paddingBottom: 8 }}
+          formatter={(value) => <span style={{ color: TEXT_COLOR }}>{value}</span>}
+          wrapperStyle={{ fontSize: 10, paddingBottom: 8 }}
         />
         {SLEEP_STAGES.map((s) => (
           <Bar key={s.key} dataKey={s.key} name={s.name} stackId="sleep" fill={s.color} />
@@ -227,7 +228,7 @@ const ZONE_NAME_MAP: Record<string, string> = {
   'Fat Burn': '脂肪燃焼帯', Cardio: '有酸素帯', Peak: '最大強度帯', 'Out of Range': '安静帯',
 };
 const ZONE_COLORS: Record<string, string> = {
-  'Fat Burn': '#ffb347', Cardio: '#ff6b6b', Peak: '#e040fb', 'Out of Range': '#2a2d3a',
+  'Fat Burn': '#ffb347', Cardio: '#ff6b6b', Peak: '#e040fb', 'Out of Range': '#3d4451',
 };
 
 export function HRZoneDonut({ data }: ChartsProps) {
@@ -242,14 +243,20 @@ export function HRZoneDonut({ data }: ChartsProps) {
     value: z.minutes,
     calories: Math.round(z.caloriesOut),
     color: ZONE_COLORS[z.name] || '#555',
+    active: z.name !== 'Out of Range',
   }));
 
+  // 安静帯は滞在時間が支配的でドーナツが潰れるため、活動ゾーンのみ描画する
+  const activeZones = pieData.filter(d => d.active);
+  const donutData = activeZones.length > 0 ? activeZones : pieData;
+
   return (
-    <div className="flex items-center gap-6">
-      <ResponsiveContainer width="50%" height={220}>
+    <div className="flex items-center gap-6 max-sm:flex-col max-sm:gap-2">
+      <div className="h-[220px] w-1/2 max-sm:w-full">
+      <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={pieData}
+            data={donutData}
             cx="50%"
             cy="50%"
             innerRadius={55}
@@ -257,7 +264,7 @@ export function HRZoneDonut({ data }: ChartsProps) {
             dataKey="value"
             paddingAngle={1}
           >
-            {pieData.map((entry, i) => (
+            {donutData.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
             ))}
           </Pie>
@@ -281,15 +288,19 @@ export function HRZoneDonut({ data }: ChartsProps) {
           )}
         </PieChart>
       </ResponsiveContainer>
+      </div>
       <div className="flex flex-col gap-2 text-xs">
         {pieData.map((d) => (
           <div key={d.name} className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-sm" style={{ background: d.color }} />
+            <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: d.color }} />
             <span className="text-text2">{d.name}</span>
             <span className="font-bold text-text">{d.value}分</span>
             <span className="text-text3">{d.calories} kcal</span>
           </div>
         ))}
+        {activeZones.length > 0 && (
+          <div className="mt-1 text-[10px] text-text3">※グラフは活動ゾーンのみ表示</div>
+        )}
       </div>
     </div>
   );

@@ -52,9 +52,9 @@ export function Dashboard({ data }: DashboardProps) {
       <div className="px-8 pb-5 max-md:px-4">
         <SectionTitle>睡眠</SectionTitle>
         <ChartGrid>
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader><CardTitle>睡眠タイムライン</CardTitle></CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-1 flex-col justify-center">
               <SleepTimeline timeline={last >= 0 ? data.sleep_timelines[last] : null} />
             </CardContent>
           </Card>
