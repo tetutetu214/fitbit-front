@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HealthData } from '../types/health';
 import { Card } from './ui/Card';
 import { BottomSheet } from './ui/BottomSheet';
+import { CountUp } from './ui/CountUp';
 import { computeContributors, hasDataAt, zoneFor, type Contributor } from '../lib/readiness';
+import { useReducedMotion } from '../lib/useReducedMotion';
 
 interface HeroScoreProps {
   data: HealthData;
@@ -38,6 +40,15 @@ function ScoreRing({ score, color }: ScoreRingProps) {
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
 
+  // マウント時に 0 からアークを描画する（reduced-motion 時は即時表示）
+  const reduced = useReducedMotion();
+  const [drawn, setDrawn] = useState(reduced);
+  useEffect(() => {
+    if (reduced) return;
+    const id = requestAnimationFrame(() => setDrawn(true));
+    return () => cancelAnimationFrame(id);
+  }, [reduced]);
+
   return (
     <svg width={size} height={size} className="block" role="img" aria-label={`Readiness score ${score}`}>
       <circle
@@ -57,7 +68,7 @@ function ScoreRing({ score, color }: ScoreRingProps) {
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={circumference}
-        strokeDashoffset={offset}
+        strokeDashoffset={drawn ? offset : circumference}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: 'stroke-dashoffset 1.2s ease-out' }}
       />
@@ -70,7 +81,7 @@ function ScoreRing({ score, color }: ScoreRingProps) {
         fontSize="56"
         fontWeight="700"
       >
-        {score}
+        <CountUp value={score} format={(v) => String(Math.round(v))} duration={1000} />
       </text>
     </svg>
   );

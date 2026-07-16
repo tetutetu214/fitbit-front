@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import type { HealthData } from '../types/health';
 import { Card } from './ui/Card';
+import { CountUp } from './ui/CountUp';
+import { useReducedMotion } from '../lib/useReducedMotion';
 
 interface GoalRingsProps {
   data: HealthData;
@@ -7,6 +10,15 @@ interface GoalRingsProps {
 }
 
 export function GoalRings({ data, index }: GoalRingsProps) {
+  // マウント時に 0% からリングを充填する（reduced-motion 時は即時表示）
+  const reduced = useReducedMotion();
+  const [filled, setFilled] = useState(reduced);
+  useEffect(() => {
+    if (reduced) return;
+    const id = requestAnimationFrame(() => setFilled(true));
+    return () => cancelAnimationFrame(id);
+  }, [reduced]);
+
   if (index < 0 || index >= data.dates.length) return null;
 
   const goals = data.goals[index] || {};
@@ -27,18 +39,23 @@ export function GoalRings({ data, index }: GoalRingsProps) {
 
         return (
           <Card key={item.label} className="text-center">
-            <div className="relative mx-auto mb-2 h-[100px] w-[100px]">
+            <div
+              className={`relative mx-auto mb-2 h-[100px] w-[100px] ${
+                achieved && !reduced ? 'animate-goal-pop' : ''
+              }`}
+            >
               <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#21262d" strokeWidth="6" />
                 <circle
                   cx="50" cy="50" r="40" fill="none"
                   stroke={color} strokeWidth="6"
-                  strokeDasharray={`${dashLen} 251.2`}
+                  strokeDasharray={`${filled ? dashLen : 0} 251.2`}
                   strokeLinecap="round"
+                  style={{ transition: 'stroke-dasharray 0.8s ease-out' }}
                 />
               </svg>
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-bold" style={{ color }}>
-                {Math.round(pct)}%
+                <CountUp value={Math.round(pct)} format={(v) => `${Math.round(v)}%`} />
               </div>
             </div>
             <div className="text-[11px] text-text2">{item.label}</div>
