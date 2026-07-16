@@ -58,4 +58,23 @@ export const sampleData: HealthData = {
   ],
   weight: [68.4, 68.2, 68.5, 68.1, 67.9, 68.0, 67.8],
   body_fat: [18.2, 18.1, 18.3, 18.0, 17.8, 17.9, 17.7],
+  hr_intraday: [null, null, null, null, null, null, genSampleIntraday()],
 };
+
+/** 当日分の心拍推移サンプル（5分平均・21時まで）を決定論的に生成 */
+function genSampleIntraday(): { time: string; value: number }[] {
+  const points: { time: string; value: number }[] = [];
+  for (let m = 0; m < 21 * 60; m += 5) {
+    const h = m / 60;
+    const nightDip = -8 * Math.exp(-((h - 3) ** 2) / 12);
+    const morningRise = 10 * Math.exp(-((h - 8) ** 2) / 6);
+    const eveningPeak = 22 * Math.exp(-((h - 18) ** 2) / 3);
+    const wobble = 3 * Math.sin(m / 23) + 2 * Math.sin(m / 9);
+    const value = Math.round(62 + nightDip + morningRise + eveningPeak + wobble);
+    points.push({
+      time: `${String(Math.floor(h)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+      value,
+    });
+  }
+  return points;
+}

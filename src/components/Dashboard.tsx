@@ -15,6 +15,7 @@ import {
   HRVChart,
   SpO2Chart,
   HRZoneDonut,
+  HRIntradayChart,
   BodyCompositionChart,
 } from './Charts';
 
@@ -115,6 +116,11 @@ export function Dashboard({ data }: DashboardProps) {
         <div className="px-8 pb-5 max-md:px-4">
           <SectionTitle>心臓・循環器</SectionTitle>
           <ChartGrid>
+            <Card>
+              <CardHeader><CardTitle>心拍推移（この日）</CardTitle></CardHeader>
+              <CardContent><HRIntradayChart data={data} index={selectedIdx} /></CardContent>
+              <CardFooter>※Fitbit同期時点までの5分平均（準リアルタイム）</CardFooter>
+            </Card>
             <Card>
               <CardHeader><CardTitle>安静時心拍数</CardTitle></CardHeader>
               <CardContent><RestingHRChart data={data} /></CardContent>

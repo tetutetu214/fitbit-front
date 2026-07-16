@@ -418,3 +418,75 @@ export function BodyCompositionChart({ data }: ChartsProps) {
     </ResponsiveContainer>
   );
 }
+
+/* ── 心拍推移（Intraday・準リアルタイム） ── */
+
+export function HRIntradayChart({ data, index }: ChartsProps & { index: number }) {
+  const points = data.hr_intraday?.[index] ?? null;
+
+  if (!points || points.length === 0) {
+    return (
+      <div className="flex h-[220px] items-center justify-center text-xs text-text2">
+        この日の心拍推移データはありません
+      </div>
+    );
+  }
+
+  const last = points[points.length - 1];
+  const values = points.map((p) => p.value);
+  const yMin = Math.max(30, Math.floor((Math.min(...values) - 5) / 10) * 10);
+  const ticks = points
+    .filter((p) => /^(00|03|06|09|12|15|18|21):00$/.test(p.time))
+    .map((p) => p.time);
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between">
+        <div className="text-xs text-text2">
+          直近 <span className="font-bold text-danger">{last.value}</span> bpm
+        </div>
+        <div className="text-[11px] text-text3">最終計測 {last.time}</div>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+          <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="time"
+            ticks={ticks}
+            tick={{ fill: TEXT_COLOR, fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fill: TEXT_COLOR, fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            unit=" bpm"
+            width={56}
+            domain={[yMin, 'auto']}
+          />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const p = payload[0].payload as { time: string; value: number };
+              return (
+                <div className="rounded-md border border-border bg-card2 px-2.5 py-1.5 text-xs text-text">
+                  {p.time} — {p.value} bpm
+                </div>
+              );
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke="#ff6b6b"
+            strokeWidth={2}
+            fill="rgba(255,107,107,0.10)"
+            dot={false}
+            activeDot={{ r: 4 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

@@ -71,6 +71,8 @@ def api_get(endpoint: str, token_data: dict) -> dict:
 
 ENDPOINTS = {
     "heartrate": "/1/user/-/activities/heart/date/{date}/1d.json",
+    # Intraday（分単位）。Personalタイプのアプリは申請不要で取得可能
+    "heartrate_intraday": "/1/user/-/activities/heart/date/{date}/1d/1min.json",
     "sleep": "/1.2/user/-/sleep/date/{date}.json",
     "activity": "/1/user/-/activities/date/{date}.json",
     "hrv": "/1/user/-/hrv/date/{date}.json",

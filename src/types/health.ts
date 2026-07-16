@@ -22,6 +22,12 @@ export interface Goals {
   activeMinutes?: number;
 }
 
+export interface HRIntradayPoint {
+  /** "HH:MM" 形式（5分平均） */
+  time: string;
+  value: number;
+}
+
 export interface HealthData {
   dates: string[];
   resting_hr: (number | null)[];
@@ -43,4 +49,6 @@ export interface HealthData {
   goals: (Goals | null)[];
   weight: (number | null)[];
   body_fat: (number | null)[];
+  /** 分単位心拍の5分平均。Intraday未取得の日は null */
+  hr_intraday?: (HRIntradayPoint[] | null)[];
 }

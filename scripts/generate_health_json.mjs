@@ -76,6 +76,7 @@ function extractMetrics(data) {
     goals: [],
     weight: [],
     body_fat: [],
+    hr_intraday: [],
   };
 
   const tanitaByDate = loadTanitaByDate();
@@ -152,9 +153,33 @@ function extractMetrics(data) {
     const tanita = tanitaByDate[dateStr];
     metrics.weight.push(tanita?.weight ?? null);
     metrics.body_fat.push(tanita?.body_fat ?? null);
+
+    const intradaySet =
+      day.heartrate_intraday?.['activities-heart-intraday']?.dataset ??
+      day.heartrate?.['activities-heart-intraday']?.dataset ??
+      [];
+    metrics.hr_intraday.push(intradaySet.length > 0 ? downsampleHr(intradaySet) : null);
   }
 
   return metrics;
+}
+
+/** 1分粒度の心拍データを5分平均にダウンサンプリング（JSONサイズ削減） */
+function downsampleHr(dataset) {
+  const buckets = new Map();
+  for (const p of dataset) {
+    if (typeof p.value !== 'number') continue;
+    const [h, m] = p.time.split(':').map(Number);
+    const key = h * 60 + Math.floor(m / 5) * 5;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p.value);
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([min, values]) => ({
+      time: `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`,
+      value: Math.round(values.reduce((s, v) => s + v, 0) / values.length),
+    }));
 }
 
 const data = loadDailyData();
