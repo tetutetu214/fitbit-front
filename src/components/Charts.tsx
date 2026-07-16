@@ -231,12 +231,17 @@ const ZONE_COLORS: Record<string, string> = {
   'Fat Burn': '#ffb347', Cardio: '#ff6b6b', Peak: '#e040fb', 'Out of Range': '#3d4451',
 };
 
-export function HRZoneDonut({ data }: ChartsProps) {
-  const last = data.dates.length - 1;
-  const zones = data.hr_zones[last] || [];
-  const rhr = data.resting_hr[last];
+export function HRZoneDonut({ data, index }: ChartsProps & { index: number }) {
+  const zones = data.hr_zones[index] || [];
+  const rhr = data.resting_hr[index];
 
-  if (zones.length === 0 && !rhr) return null;
+  if (zones.length === 0) {
+    return (
+      <div className="flex h-[220px] items-center justify-center text-xs text-text2">
+        この日の心拍ゾーンデータはありません
+      </div>
+    );
+  }
 
   const pieData = zones.map(z => ({
     name: ZONE_NAME_MAP[z.name] || z.name,

@@ -3,17 +3,17 @@ import { Card } from './ui/Card';
 
 interface GoalRingsProps {
   data: HealthData;
+  index: number;
 }
 
-export function GoalRings({ data }: GoalRingsProps) {
-  const last = data.dates.length - 1;
-  if (last < 0) return null;
+export function GoalRings({ data, index }: GoalRingsProps) {
+  if (index < 0 || index >= data.dates.length) return null;
 
-  const goals = data.goals[last] || {};
+  const goals = data.goals[index] || {};
   const items = [
-    { label: '歩数', actual: data.steps[last], goal: goals.steps ?? 10000, unit: '歩' },
+    { label: '歩数', actual: data.steps[index], goal: goals.steps ?? 10000, unit: '歩' },
     { label: '距離', actual: 0, goal: goals.distance ?? 8.05, unit: 'km', decimals: 1 },
-    { label: '消費カロリー', actual: data.active_calories[last] || 0, goal: goals.caloriesOut ?? 2244, unit: 'kcal' },
+    { label: '消費カロリー', actual: data.active_calories[index] || 0, goal: goals.caloriesOut ?? 2244, unit: 'kcal' },
     { label: '活動時間', actual: 0, goal: goals.activeMinutes ?? 30, unit: '分' },
   ];
 

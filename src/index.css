@@ -37,3 +37,19 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
 }
+
+/* 日付切替時のクロスフェード */
+@keyframes fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-slide {
+  animation: fade-slide 0.28s ease;
+}
