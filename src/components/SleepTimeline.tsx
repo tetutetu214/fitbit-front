@@ -6,7 +6,7 @@ interface SleepTimelineProps {
 }
 
 const colorMap: Record<string, string> = {
-  deep: '#1a237e', light: '#5c6bc0', rem: '#26a69a', wake: '#ef5350',
+  deep: '#3949ab', light: '#9fa8da', rem: '#26a69a', wake: '#ef5350',
 };
 const nameMap: Record<string, string> = {
   deep: '深い眠り', light: '浅い眠り', rem: 'レム睡眠', wake: '覚醒',
@@ -78,7 +78,7 @@ export function SleepTimeline({ timeline }: SleepTimelineProps) {
       {timeline.shortData && timeline.shortData.length > 0 && (
         <>
           <button
-            className="mt-1.5 cursor-pointer rounded border border-accent bg-transparent px-2 py-0.5 text-[11px] text-accent hover:bg-accent/10"
+            className="mt-1.5 cursor-pointer self-start rounded border border-accent bg-transparent px-2 py-0.5 text-[11px] text-accent hover:bg-accent/10"
             onClick={() => setShowShort((p) => !p)}
           >
             {showShort ? '短い覚醒を非表示' : `短い覚醒を表示 (${timeline.shortData.length}回)`}
