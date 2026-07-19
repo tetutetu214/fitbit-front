@@ -3,6 +3,7 @@ import type { HealthData } from '../types/health';
 import { Header } from './Header';
 import { DateStrip } from './DateStrip';
 import { HeroScore } from './HeroScore';
+import { TrainerPanel } from './TrainerPanel';
 import { SummaryCards } from './SummaryCards';
 import { GoalRings } from './GoalRings';
 import { SleepTimeline } from './SleepTimeline';
@@ -89,6 +90,7 @@ export function Dashboard({ data }: DashboardProps) {
         onTouchEnd={onTouchEnd}
       >
         <HeroScore data={data} index={selectedIdx} />
+        <TrainerPanel data={data} index={selectedIdx} />
         <SummaryCards data={data} index={selectedIdx} />
 
         <div className="px-8 max-md:px-4">

@@ -271,3 +271,42 @@ Fitbitトークンはサーバーサイドのみで扱い、**フロントエン
 本設計は**月額~$0.40〜$0.60**（既存AWSアカウント前提）でフル機能の個人向けヘルスBIツールを運用でき、50ユーザーまでスケールしても$5/月予算の12%未満に収まる。設計上の最重要判断は3点：フロントエンドに**Cloudflare Pages**を選択すること（S3+CloudFront比でコスト$0、セットアップ時間1/20）、トークン保管に**SSM Parameter Store + Secrets Managerのハイブリッド**を採用すること（全量Secrets Managerの1/50のコスト）、DynamoDBを**On-Demandモード**で運用すること（既存アカウントではProvisioned永続無料枠が他テーブルと共有されるため、キャパシティ管理不要のOn-Demandが適切）である。
 
 2026年9月にFitbit Web APIのdeprecationが予定されているため、Phase 3完了後にGoogle Health APIへの移行パスを調査・設計しておくことを強く推奨する。データ収集Lambda関数にAPIアダプターパターンを採用し、エンドポイント切り替えを最小コストで行える設計が望ましい。
+
+---
+
+## AIトレーナー機能（Amazon Bedrock Nova 2）
+
+ダッシュボードのReadinessスコア直下に「AIトレーナー」パネルを表示する。選択中の日の睡眠・心拍・HRV・SpO2・活動量・体組成のサマリー（直近7日平均のベースライン付き）をLambda経由でAmazon Bedrockの**Nova 2**に渡し、その日の状態解説と行動アドバイスを日本語で返す。
+
+### アーキテクチャ
+
+```
+React SPA (TrainerPanel)
+   │ POST 日次ヘルスサマリー(JSON)
+   ▼
+Lambda Function URL (公開 + CORS, API Gateway不要で$0)
+   ▼
+Lambda: fitbit-trainer (Node.js 22, ARM64, 256MB)
+   │ Converse API
+   ▼
+Amazon Bedrock — Nova 2 Lite (us.amazon.nova-2-lite-v1:0)
+```
+
+- Fitbitトークンや生データはLambdaに渡さない。フロントで集計済みのサマリーのみ送信する
+- 解説は日付ごとにフロント側でキャッシュし、同じ日の再リクエストを抑制する
+- `VITE_TRAINER_API_URL`が未設定の場合、パネル自体が表示されない（機能はオプトイン）
+
+### セットアップ手順
+
+1. **Bedrockモデルアクセスの有効化**: AWSコンソール → Bedrock → Model access で「Amazon Nova 2 Lite」を有効化する（リージョンは`us-east-1`推奨）
+2. **Lambdaのデプロイ**:
+   ```bash
+   ./scripts/deploy_trainer.sh
+   # 本番はCORSを絞る:
+   # TRAINER_ALLOW_ORIGIN=https://health.yourdomain.com ./scripts/deploy_trainer.sh
+   ```
+3. **フロントの環境変数設定**: スクリプトが出力する`VITE_TRAINER_API_URL=...`を`.env`（ローカル）またはCloudflare Pagesの環境変数に設定して再ビルドする
+
+### コスト
+
+Nova 2 Liteは低価格帯モデルであり、1回の解説リクエスト（入力〜2Kトークン・出力〜1Kトークン）はごく少額。1日数回の利用なら月額コストは数円程度に収まり、Lambda・Function URLは無料枠内で$0。モデルは環境変数`TRAINER_MODEL_ID`（デプロイ時）/`MODEL_ID`（Lambda）で差し替え可能。
