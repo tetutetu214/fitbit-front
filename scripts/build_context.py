@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
 DEFAULT_VAULT_DIR = Path("/mnt/c/Users/lemon/Vault")
-MAX_CONTEXT_CHARS = 120_000
+MAX_CONTEXT_CHARS = 160_000
 
 JsonObject = dict[str, Any]
 MetricValue = int | float | None
@@ -348,7 +348,7 @@ def _render_worklogs(
     dates: list[date],
     worklogs: dict[str, list[WorklogEntry]],
     vault_available: bool,
-    body_line_limit: int | None,
+    body_char_limit: int | None,
 ) -> str:
     lines = ["## 日ごとの作業ログ", ""]
     if not vault_available:
@@ -364,10 +364,15 @@ def _render_worklogs(
             continue
         for entry in entries:
             lines.append(entry.heading)
-            body_lines = entry.body_lines
-            if body_line_limit is not None:
-                body_lines = body_lines[:body_line_limit]
-            lines.extend(body_lines)
+            # worklog本文は1段落=1行のことが多く行数では縮まないため、文字数で打ち切る。
+            body_text = "\n".join(entry.body_lines)
+            if body_char_limit == 0:
+                # 最終段階は見出しのみに落とす。
+                body_text = ""
+            elif body_char_limit is not None and len(body_text) > body_char_limit:
+                body_text = f"{body_text[:body_char_limit]}…"
+            if body_text:
+                lines.append(body_text)
             lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -470,13 +475,13 @@ def build_context(
     table_section = _render_table(dates, fitbit_by_date, tanita_by_date)
     reflection_section = _render_reflections(reflections)
 
-    for body_line_limit in (None, 5, 2, 1, 0):
+    for body_char_limit in (None, 600, 400, 300, 200, 0):
         context = "\n\n".join(
             [
                 missing_section,
                 table_section,
                 _render_worklogs(
-                    dates, worklogs, vault_available, body_line_limit
+                    dates, worklogs, vault_available, body_char_limit
                 ),
                 reflection_section,
             ]

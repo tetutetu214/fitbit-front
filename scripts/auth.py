@@ -100,7 +100,7 @@ def step1_generate_url():
     print("\n=== Step 1: 以下のURLをブラウザで開いて認可してください ===")
     print(f"\n{auth_url}\n")
     print("認可後、アドレスバーのURLから code= の値をコピーして、以下を実行：")
-    print("  python scripts/auth.py <認可コード>\n")
+    print("  .venv/bin/python scripts/auth.py '<リダイレクト先のURLまるごと>'\n")
 
 
 def step2_exchange(auth_code: str):
@@ -127,7 +127,11 @@ def step2_exchange(auth_code: str):
 
 def main():
     if len(sys.argv) >= 2:
-        auth_code = sys.argv[1].strip().rstrip("#_=_").strip()
+        # 認可コード単体でも、リダイレクト先 URL まるごと（https://localhost/?code=XXX#_=_）でも受け付ける
+        arg = sys.argv[1].strip()
+        if "code=" in arg:
+            arg = arg.split("code=", 1)[1]
+        auth_code = arg.split("#", 1)[0].split("&", 1)[0].strip()
         step2_exchange(auth_code)
     else:
         step1_generate_url()

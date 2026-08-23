@@ -164,16 +164,37 @@ def test_missing_vault_outputs_none_without_failing(tmp_path) -> None:
     assert "## Reflections\n\nなし" in context
 
 
-def test_worklog_body_lines_are_reduced_below_120000_characters(tmp_path) -> None:
-    vault_dir = tmp_path / "vault"
+def _write_worklog(vault_dir: Path, body: str) -> None:
     worklog_path = vault_dir / "worklog" / "2026-04-01.md"
-    worklog_path.parent.mkdir(parents=True)
-    first_line = "A" * 110_000
-    second_line = "B" * 110_000
+    worklog_path.parent.mkdir(parents=True, exist_ok=True)
     worklog_path.write_text(
-        f"## 09:00 Large entry\n{first_line}\n{second_line}\n",
-        encoding="utf-8",
+        f"## 09:00 Large entry\n{body}\n", encoding="utf-8"
     )
+
+
+def test_worklog_body_stays_full_when_context_fits_in_the_limit(tmp_path) -> None:
+    vault_dir = tmp_path / "vault"
+    body = "短い本文なので打ち切られない。"
+    _write_worklog(vault_dir, body)
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=vault_dir,
+    )
+
+    assert body in context
+    assert "…" not in context
+
+
+def test_oversized_worklog_body_is_first_truncated_to_600_characters(
+    tmp_path,
+) -> None:
+    vault_dir = tmp_path / "vault"
+    # 1エントリで上限を超え、最初の段階(600文字)に落ちる長さにする。
+    body = "あ" * 200_000
+    _write_worklog(vault_dir, body)
 
     context = build_context.build_context(
         days=1,
@@ -183,19 +204,19 @@ def test_worklog_body_lines_are_reduced_below_120000_characters(tmp_path) -> Non
     )
 
     assert len(context) <= build_context.MAX_CONTEXT_CHARS
-    assert first_line in context
-    assert second_line not in context
+    assert "あ" * 600 + "…" in context
+    assert "あ" * 601 not in context
 
 
-def test_worklog_is_first_reduced_to_five_body_lines(tmp_path) -> None:
+def test_single_paragraph_worklog_bodies_shrink_stepwise(tmp_path) -> None:
     vault_dir = tmp_path / "vault"
     worklog_path = vault_dir / "worklog" / "2026-04-01.md"
     worklog_path.parent.mkdir(parents=True)
-    body_lines = [character * 20_000 for character in "ABCDEF"]
-    worklog_path.write_text(
-        "## 09:00 Large entry\n" + "\n".join(body_lines) + "\n",
-        encoding="utf-8",
+    # 実データと同じく1段落=1行。行数基準では縮まらないので400文字段階まで落ちる。
+    entries = "\n".join(
+        f"## 00:00 Entry {index}\n{'あ' * 1_000}" for index in range(300)
     )
+    worklog_path.write_text(f"{entries}\n", encoding="utf-8")
 
     context = build_context.build_context(
         days=1,
@@ -205,8 +226,35 @@ def test_worklog_is_first_reduced_to_five_body_lines(tmp_path) -> None:
     )
 
     assert len(context) <= build_context.MAX_CONTEXT_CHARS
-    assert body_lines[4] in context
-    assert body_lines[5] not in context
+    assert "あ" * 400 + "…" in context
+    assert "あ" * 401 not in context
+    # 全300エントリが本文つきで残る（見出しのみに落ちていない）。
+    assert context.count("…") == 300
+
+
+def test_worklog_falls_back_to_headings_only_when_truncation_is_not_enough(
+    tmp_path,
+) -> None:
+    vault_dir = tmp_path / "vault"
+    worklog_path = vault_dir / "worklog" / "2026-04-01.md"
+    worklog_path.parent.mkdir(parents=True)
+    # 200文字に打ち切っても収まらない件数にして、見出しのみの段階を踏ませる。
+    entries = "\n".join(
+        f"## 00:00 Entry {index}\n{'あ' * 1_000}" for index in range(2_000)
+    )
+    worklog_path.write_text(f"{entries}\n", encoding="utf-8")
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=vault_dir,
+        max_chars=100_000,
+    )
+
+    assert len(context) <= 100_000
+    assert "## 00:00 Entry 0" in context
+    assert "あ" not in context
 
 
 def test_main_prints_generated_context_character_count(
