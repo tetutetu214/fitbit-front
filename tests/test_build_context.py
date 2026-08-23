@@ -52,8 +52,18 @@ def _fitbit_day() -> dict[str, Any]:
         },
         "sleep": {
             "sleep": [
-                {"isMainSleep": False, "efficiency": 50},
-                {"isMainSleep": True, "efficiency": 90},
+                {
+                    "isMainSleep": False,
+                    "efficiency": 50,
+                    "startTime": "2026-04-01T14:00:00.000",
+                    "endTime": "2026-04-01T14:40:00.000",
+                },
+                {
+                    "isMainSleep": True,
+                    "efficiency": 90,
+                    "startTime": "2026-03-31T23:45:00.000",
+                    "endTime": "2026-04-01T05:47:00.000",
+                },
             ],
             "summary": {
                 "totalMinutesAsleep": 420,
@@ -156,7 +166,7 @@ date: 2026-03-31
     first_day_row = next(
         line for line in context.splitlines() if line.startswith("| 2026-04-01 ")
     )
-    assert "| 61 | 28.5 | 420 | 90 |" in first_day_row
+    assert "| 61 | 28.5 | 23:45 | 05:47 | 420 | 90 |" in first_day_row
     assert "| 65 | - | - |" in first_day_row
     second_day_row = next(
         line for line in context.splitlines() if line.startswith("| 2026-04-02 ")
@@ -447,3 +457,137 @@ def test_report_dated_after_the_end_date_is_not_chosen_as_the_previous_one(
     assert "## 前回の指示と予測（2026-03-25 作成）" in context
     assert "過去のレポートの指示" in context
     assert "未来のレポートの指示" not in context
+
+
+def _fitbit_day_with_sleep_times(start_time: str, end_time: str) -> dict[str, Any]:
+    day = _fitbit_day()
+    day["sleep"]["sleep"] = [
+        {
+            "isMainSleep": True,
+            "efficiency": 90,
+            "startTime": start_time,
+            "endTime": end_time,
+        }
+    ]
+    return day
+
+
+def test_main_sleep_bedtime_and_wake_time_appear_as_hh_mm_in_the_table(
+    tmp_path,
+) -> None:
+    data_dir = tmp_path / "data"
+    _write_json(
+        data_dir / "daily" / "2026-04-01.json",
+        _fitbit_day_with_sleep_times(
+            "2026-03-31T00:12:00.000", "2026-04-01T05:47:00.000"
+        ),
+    )
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    header = next(
+        line for line in context.splitlines() if line.startswith("| 日付 ")
+    )
+    row = next(
+        line for line in context.splitlines() if line.startswith("| 2026-04-01 ")
+    )
+    assert "| 就寝 | 起床 | 睡眠時間(分) |" in header
+    assert "| 00:12 | 05:47 | 420 |" in row
+
+
+def test_day_without_sleep_records_shows_hyphens_for_bedtime_and_wake_time(
+    tmp_path,
+) -> None:
+    data_dir = tmp_path / "data"
+    day = _fitbit_day()
+    day["sleep"] = {"sleep": [], "summary": {}}
+    _write_json(data_dir / "daily" / "2026-04-01.json", day)
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    row = next(
+        line for line in context.splitlines() if line.startswith("| 2026-04-01 ")
+    )
+    assert "| 61 | 28.5 | - | - | - |" in row
+
+
+def test_bedtime_and_wake_time_medians_and_in_range_days_are_summarised(
+    tmp_path,
+) -> None:
+    data_dir = tmp_path / "data"
+    # 3日分: 起床は2日が5:30〜6:00に入り、就寝は2日が23:30〜00:30に入る。
+    schedule = {
+        "2026-04-01": ("2026-03-31T23:40:00.000", "2026-04-01T05:45:00.000"),
+        "2026-04-02": ("2026-04-02T00:10:00.000", "2026-04-02T05:47:00.000"),
+        "2026-04-03": ("2026-04-02T22:00:00.000", "2026-04-03T07:10:00.000"),
+    }
+    for date_string, (start_time, end_time) in schedule.items():
+        _write_json(
+            data_dir / "daily" / f"{date_string}.json",
+            _fitbit_day_with_sleep_times(start_time, end_time),
+        )
+
+    context = build_context.build_context(
+        days=3,
+        end_date=date(2026, 4, 3),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert "- 就寝時刻: 中央値 23:40、23:30〜00:30 の範囲が 2/3 日" in context
+    assert "- 起床時刻: 中央値 05:47、05:30〜06:00 の範囲が 2/3 日" in context
+
+
+def test_sleep_time_summary_reports_no_valid_days_when_records_are_absent(
+    tmp_path,
+) -> None:
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert "- 起床時刻: 有効日なし（05:30〜06:00 の範囲が 0/0 日）" in context
+
+
+def test_longest_sleep_is_used_when_no_record_is_flagged_as_main(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    day = _fitbit_day()
+    day["sleep"]["sleep"] = [
+        {
+            "efficiency": 80,
+            "duration": 3_600_000,
+            "startTime": "2026-04-01T13:00:00.000",
+            "endTime": "2026-04-01T14:00:00.000",
+        },
+        {
+            "efficiency": 92,
+            "duration": 21_600_000,
+            "startTime": "2026-03-31T23:55:00.000",
+            "endTime": "2026-04-01T05:55:00.000",
+        },
+    ]
+    _write_json(data_dir / "daily" / "2026-04-01.json", day)
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    row = next(
+        line for line in context.splitlines() if line.startswith("| 2026-04-01 ")
+    )
+    assert "| 23:55 | 05:55 | 420 | 92 |" in row

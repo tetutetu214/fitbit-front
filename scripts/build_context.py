@@ -24,6 +24,10 @@ WORKLOG_HEADING = re.compile(r"^## \d{2}:\d{2}(?:\s|$)")
 FRONTMATTER_DATE = re.compile(r"^date:\s*(.+?)\s*$")
 REPORT_FILENAME = re.compile(r"^(\d{4}-\d{2}-\d{2})_analysis\.md$")
 
+# 就寝・起床時刻の「よくある範囲」。日をまたぐ就寝も正午基準のシフトで連続区間として扱う。
+BEDTIME_RANGE = (23 * 60 + 30, 30)
+WAKE_RANGE = (5 * 60 + 30, 6 * 60)
+
 PROFILE_HEADING = "## 本人プロフィール"
 PROFILE_MISSING_SECTION = (
     f"{PROFILE_HEADING}\n\n"
@@ -97,12 +101,94 @@ def _first_record(container: object, key: str) -> JsonObject | None:
     return records[0] if records else None
 
 
+def _main_sleep_record(records: list[JsonObject]) -> JsonObject | None:
+    """isMainSleepのレコードを優先し、無ければ最長の1件を返す。"""
+    main_sleep = next(
+        (record for record in records if record.get("isMainSleep") is True),
+        None,
+    )
+    if main_sleep is not None or not records:
+        return main_sleep
+
+    def _length(record: JsonObject) -> float:
+        for key in ("duration", "minutesAsleep"):
+            value = _numeric(record.get(key))
+            if value is not None:
+                return float(value)
+        return -1.0
+
+    return max(records, key=_length)
+
+
+def _clock_minutes(value: object) -> int | None:
+    """ISO形式のローカル時刻から0時起点の分を取り出す。"""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed.hour * 60 + parsed.minute
+
+
+def _format_clock(minutes: int | None) -> str:
+    if minutes is None:
+        return "-"
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _from_noon(minutes: int) -> int:
+    """正午を起点に並べ替える。日をまたぐ就寝時刻を連続した値として扱うため。"""
+    return (minutes - 12 * 60) % (24 * 60)
+
+
+def _median_clock(values: list[int]) -> int | None:
+    """時刻の中央値を0時起点の分で返す。件数が偶数なら中央2件の平均。"""
+    if not values:
+        return None
+    shifted = sorted(_from_noon(value) for value in values)
+    middle = len(shifted) // 2
+    if len(shifted) % 2 == 1:
+        median = shifted[middle]
+    else:
+        median = round((shifted[middle - 1] + shifted[middle]) / 2)
+    return (median + 12 * 60) % (24 * 60)
+
+
+def _in_clock_range(minutes: int, clock_range: tuple[int, int]) -> bool:
+    """日をまたぐ範囲も両端を含めて判定する。"""
+    start, end = clock_range
+    span = (end - start) % (24 * 60)
+    return (minutes - start) % (24 * 60) <= span
+
+
+def _render_clock_distribution(
+    label: str, values: list[int], clock_range: tuple[int, int]
+) -> str:
+    """中央値と、よくある範囲に入った日数を1行にまとめる。"""
+    range_text = (
+        f"{_format_clock(clock_range[0])}〜{_format_clock(clock_range[1])}"
+    )
+    median = _median_clock(values)
+    if median is None:
+        return f"- {label}: 有効日なし（{range_text} の範囲が 0/0 日）"
+    in_range = sum(
+        1 for value in values if _in_clock_range(value, clock_range)
+    )
+    return (
+        f"- {label}: 中央値 {_format_clock(median)}、"
+        f"{range_text} の範囲が {in_range}/{len(values)} 日"
+    )
+
+
 def extract_fitbit_metrics(day: JsonObject | None) -> dict[str, MetricValue]:
     """generate_health_json.mjsと同じ参照元から日次値を取り出す。"""
     if day is None:
         return {
             "resting_hr": None,
             "hrv_rmssd": None,
+            "bedtime_minutes": None,
+            "wake_minutes": None,
             "sleep_minutes": None,
             "sleep_efficiency": None,
             "deep": None,
@@ -135,10 +221,7 @@ def extract_fitbit_metrics(day: JsonObject | None) -> dict[str, MetricValue]:
     sleep_records = (
         _objects(sleep_data.get("sleep")) if isinstance(sleep_data, dict) else []
     )
-    main_sleep = next(
-        (record for record in sleep_records if record.get("isMainSleep") is True),
-        None,
-    )
+    main_sleep = _main_sleep_record(sleep_records)
     sleep_summary = (
         sleep_data.get("summary", {}) if isinstance(sleep_data, dict) else {}
     )
@@ -189,6 +272,12 @@ def extract_fitbit_metrics(day: JsonObject | None) -> dict[str, MetricValue]:
     return {
         "resting_hr": resting_hr,
         "hrv_rmssd": hrv_rmssd,
+        "bedtime_minutes": (
+            _clock_minutes(main_sleep.get("startTime")) if main_sleep else None
+        ),
+        "wake_minutes": (
+            _clock_minutes(main_sleep.get("endTime")) if main_sleep else None
+        ),
         "sleep_minutes": sleep_minutes,
         "sleep_efficiency": sleep_efficiency,
         "deep": _numeric(stages.get("deep")) if has_sleep else None,
@@ -322,23 +411,33 @@ def _render_table(
         "## 日次メトリクス",
         "",
         (
-            "| 日付 | 安静時心拍 | HRV RMSSD | 睡眠時間(分) | 睡眠効率 | "
+            "| 日付 | 安静時心拍 | HRV RMSSD | 就寝 | 起床 | 睡眠時間(分) | 睡眠効率 | "
             "深い(分) | REM(分) | 浅い(分) | 覚醒(分) | SpO2 平均 | 歩数 | "
             "座位(分) | 活動(分: lightly+fairly+very) | 体重 | 体脂肪率 |"
         ),
         (
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-            "---:|---:|---:|"
+            "---:|---:|---:|---:|---:|"
         ),
     ]
+    bedtimes: list[int] = []
+    wake_times: list[int] = []
     for current in dates:
         date_string = current.isoformat()
         fitbit = extract_fitbit_metrics(fitbit_by_date.get(date_string))
         tanita = extract_tanita_metrics(tanita_by_date.get(date_string))
+        bedtime = fitbit["bedtime_minutes"]
+        wake_time = fitbit["wake_minutes"]
+        if isinstance(bedtime, int):
+            bedtimes.append(bedtime)
+        if isinstance(wake_time, int):
+            wake_times.append(wake_time)
         values = [
             date_string,
             _format_metric(fitbit["resting_hr"]),
             _format_metric(fitbit["hrv_rmssd"]),
+            _format_clock(bedtime if isinstance(bedtime, int) else None),
+            _format_clock(wake_time if isinstance(wake_time, int) else None),
             _format_metric(fitbit["sleep_minutes"]),
             _format_metric(fitbit["sleep_efficiency"]),
             _format_metric(fitbit["deep"]),
@@ -353,6 +452,13 @@ def _render_table(
             _format_metric(tanita["body_fat"]),
         ]
         lines.append(f"| {' | '.join(values)} |")
+    lines.extend(
+        [
+            "",
+            _render_clock_distribution("就寝時刻", bedtimes, BEDTIME_RANGE),
+            _render_clock_distribution("起床時刻", wake_times, WAKE_RANGE),
+        ]
+    )
     return "\n".join(lines)
 
 
