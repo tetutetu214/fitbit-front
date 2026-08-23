@@ -2,3 +2,4 @@ requests==2.32.3
 python-dotenv==1.1.0
 matplotlib==3.10.1
 boto3==1.43.78
+botocore[crt]>=1.43  # aws login 方式の認証情報を boto3 が読むのに必須（awscrt）

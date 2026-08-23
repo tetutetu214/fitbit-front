@@ -16,3 +16,11 @@
 - fetch_data の既定終了日は「日本時間の昨日」。当日は未確定データのため保存しない（保存すると翌日以降スキップされる）。
 - build_context の上限は 160,000 文字（`--max-chars`）。実 Vault の worklog 本文は 1 段落 = 1 行（中央値 404 文字）で行数では縮まらないため、縮約はエントリ本文の**文字数**基準。全文 → 600 → 400 → 300 → 200 → 見出しのみ の順に打ち切り、打ち切ったときは末尾に `…` を付ける。
 - `.venv` は uv で作成（`uv venv .venv --python 3.12`）。`python` コマンドは無いので `.venv/bin/python` を使う。
+
+## 2026-08-23 サイクル 0 実行（実 API）
+- Fitbit 再認証: 認可コードは 40 文字。コピー時に末尾 1 文字が欠けて `invalid_grant` になった。auth.py をリダイレクト先 URL まるごと受け付ける形に修正（49f81b0）。
+- バックフィル: 60 日分を API 12 回で取得、エラー 0。Fitbit は 60 日すべて値あり（安静時心拍・HRV・睡眠・歩数）。Tanita は 4 月以降の測定なしで全欠測。
+- boto3 で `aws login` の認証情報を読むには `botocore[crt]`（awscrt）が必要。無いと `MissingDependencyException`。
+- **Bedrock のモデル提供状況（このアカウント、us-east-1、2026-08-23 実測）**: Claude Opus 5 / Sonnet 5 / Opus 4.8 / 4.7 / 4.6 は `AccessDeniedException: not available for this account`。契約（agreement）は Sonnet 5 だけ存在するが、アカウント単位の段階的ロールアウト中で未提供（re:Post の同種報告あり）。利用目的フォームは提出済み。**使えた最上位は Claude Opus 4.5（`us.anthropic.claude-opus-4-5-20251101-v1:0`）と Sonnet 4.6**。Opus 4.1 は Legacy 扱いで不可。
+- 初回分析: 入力 108,904 トークン / 出力 2,410 トークン（Opus 4.5）。context 151,887 文字 ≒ 109k トークン（日本語 1.4 文字/トークン程度）。
+- レポートの評価（Fable）: 数値根拠・欠測の明示・worklog の時刻との突き合わせ（深夜作業→翌日の睡眠効率）はできている。一方、仮説 1 の「8 日中 6 日で上昇（75%）」は表を数えると上昇 4・低下 3・変化なし 1 で計算ミス。平均睡眠 345 分（5 時間 45 分）という最大の事実を見出しに立てていない。worklog 本文の意味（何の作業か）は使われず、時刻だけが使われた。
