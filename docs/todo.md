@@ -1,8 +1,10 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-23 -->
-- ⏳てつてつ: トレーナー役の `data/reports/2026-08-22_analysis.md` を読み、「指示の確認」3 点に答える（答えは profile/about_me.md に追記する）
-- 次: 理解度テスト → PR 作成（feature/bedrock-analysis、04c519a まで push 済み）→ 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）
+- build_context: まばらな系列（Tanita 体重・体脂肪率）を「計測日と値の一覧」として表と別に 1 行で渡す（3 回目で最終計測日を誤読した対策）
+- 理解度テスト → PR 作成（feature/bedrock-analysis、c59d5db まで push 済み）
+- 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）
+- ⏳てつてつ: 3 回目レポートの「指示の確認」1・3（23:00 区切りは可能か / 日中の眠気・疲労の自覚）。2 は取り込み側で解決済み（08-06 まで計測あり）
 - 運用: 週 1 回（日曜朝）に fetch → build_context → analyze を回して「前回の答え合わせ」を溜める
 
 ## サイクル 0（2026-08-23 着手）
