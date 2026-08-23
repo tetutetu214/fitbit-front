@@ -15,3 +15,6 @@ __pycache__/
 /data/
 /public/data/
 tokens.json
+
+# 本人プロフィール（個人情報。example だけコミットする）
+/profile/about_me.md

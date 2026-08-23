@@ -15,12 +15,24 @@ from zoneinfo import ZoneInfo
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
 DEFAULT_VAULT_DIR = Path("/mnt/c/Users/lemon/Vault")
+DEFAULT_PROFILE_FILE = PROJECT_ROOT / "profile" / "about_me.md"
 MAX_CONTEXT_CHARS = 160_000
 
 JsonObject = dict[str, Any]
 MetricValue = int | float | None
 WORKLOG_HEADING = re.compile(r"^## \d{2}:\d{2}(?:\s|$)")
 FRONTMATTER_DATE = re.compile(r"^date:\s*(.+?)\s*$")
+REPORT_FILENAME = re.compile(r"^(\d{4}-\d{2}-\d{2})_analysis\.md$")
+
+PROFILE_HEADING = "## 本人プロフィール"
+PROFILE_MISSING_SECTION = (
+    f"{PROFILE_HEADING}\n\n"
+    "（未作成。profile/about_me.example.md をコピーして書く）"
+)
+PREVIOUS_HEADING = "## 前回の指示と予測"
+PREVIOUS_NONE_SECTION = f"{PREVIOUS_HEADING}\n\n初回のため無し"
+# 新プロンプトの見出しを先に探し、旧プロンプトで書かれたレポートも拾えるようにする。
+INSTRUCTION_HEADINGS = ("## 今週の指示", "## 来週試す1つ")
 
 
 @dataclass(frozen=True)
@@ -394,12 +406,104 @@ def _render_reflections(reflections: list[Reflection]) -> str:
     return "\n".join(lines).rstrip()
 
 
+def _render_profile(profile_file: Path) -> str:
+    """本人プロフィールを全文で節にする。無ければ作成を促す文言を返す。"""
+    if not profile_file.is_file():
+        return PROFILE_MISSING_SECTION
+    try:
+        content = profile_file.read_text(encoding="utf-8")
+    except OSError as error:
+        print(f"警告: {profile_file} を読み込めません: {error}", file=sys.stderr)
+        return PROFILE_MISSING_SECTION
+    body = content.strip()
+    if not body:
+        return PROFILE_MISSING_SECTION
+    return f"{PROFILE_HEADING}\n\n{body}"
+
+
+def _report_date(filename: str) -> date | None:
+    match = REPORT_FILENAME.match(filename)
+    if not match:
+        return None
+    try:
+        return date.fromisoformat(match.group(1))
+    except ValueError:
+        return None
+
+
+def _latest_report(reports_dir: Path, end_date: date) -> tuple[date, Path] | None:
+    """end_dateより後の日付を除いた中で最新の分析レポートを返す。"""
+    if not reports_dir.is_dir():
+        return None
+    candidates: list[tuple[date, Path]] = []
+    for path in sorted(reports_dir.glob("*_analysis.md")):
+        report_date = _report_date(path.name)
+        if report_date is None or report_date > end_date:
+            continue
+        candidates.append((report_date, path))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: (item[0], item[1].name))
+
+
+def _resolve_previous_report(
+    previous_report: Path | None, reports_dir: Path, end_date: date
+) -> tuple[date | None, Path] | None:
+    if previous_report is None:
+        return _latest_report(reports_dir, end_date)
+    if not previous_report.is_file():
+        print(f"警告: {previous_report} が見つかりません", file=sys.stderr)
+        return None
+    return (_report_date(previous_report.name), previous_report)
+
+
+def extract_instruction_section(content: str) -> str:
+    """レポートから指示の節だけを、次のH2見出しの手前まで取り出す。"""
+    lines = _strip_frontmatter(content).splitlines()
+    for heading in INSTRUCTION_HEADINGS:
+        for index, line in enumerate(lines):
+            if line.strip() != heading:
+                continue
+            section_end = len(lines)
+            for candidate in range(index + 1, len(lines)):
+                if lines[candidate].startswith("## "):
+                    section_end = candidate
+                    break
+            body_lines = list(lines[index + 1 : section_end])
+            # 節の末尾に残る区切り線と空行は落とす。
+            while body_lines and body_lines[-1].strip() in ("", "---"):
+                body_lines.pop()
+            body = "\n".join(body_lines).strip()
+            if body:
+                return body
+    return ""
+
+
+def _render_previous(report: tuple[date | None, Path] | None) -> str:
+    if report is None:
+        return PREVIOUS_NONE_SECTION
+    report_date, path = report
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as error:
+        print(f"警告: {path} を読み込めません: {error}", file=sys.stderr)
+        return PREVIOUS_NONE_SECTION
+    section = extract_instruction_section(content)
+    if not section:
+        return PREVIOUS_NONE_SECTION
+    if report_date is None:
+        return f"{PREVIOUS_HEADING}\n\n{section}"
+    return f"{PREVIOUS_HEADING}（{report_date} 作成）\n\n{section}"
+
+
 def build_context(
     days: int,
     end_date: date,
     data_dir: Path | None = None,
     vault_dir: Path | None = None,
     max_chars: int = MAX_CONTEXT_CHARS,
+    profile_file: Path | None = None,
+    previous_report: Path | None = None,
 ) -> str:
     """指定期間の入力を読み、上限内のMarkdownを返す。"""
     if days < 1:
@@ -410,6 +514,9 @@ def build_context(
     resolved_data_dir = data_dir or DATA_DIR
     resolved_vault_dir = vault_dir or Path(
         os.environ.get("VAULT_DIR") or DEFAULT_VAULT_DIR
+    )
+    resolved_profile_file = profile_file or Path(
+        os.environ.get("PROFILE_FILE") or DEFAULT_PROFILE_FILE
     )
     start_date = end_date - timedelta(days=days - 1)
     dates = list(iter_dates(start_date, end_date))
@@ -457,8 +564,6 @@ def build_context(
         reflections = []
 
     missing_lines = [
-        "# 体調分析コンテキスト",
-        "",
         "## 期間と欠測日の一覧",
         "",
         f"- 期間: {start_date}〜{end_date} ({days}日)",
@@ -474,16 +579,26 @@ def build_context(
     missing_section = "\n".join(missing_lines)
     table_section = _render_table(dates, fitbit_by_date, tanita_by_date)
     reflection_section = _render_reflections(reflections)
+    profile_section = _render_profile(resolved_profile_file)
+    previous_section = _render_previous(
+        _resolve_previous_report(
+            previous_report, resolved_data_dir / "reports", end_date
+        )
+    )
 
     for body_char_limit in (None, 600, 400, 300, 200, 0):
         context = "\n\n".join(
             [
+                "# 体調分析コンテキスト",
+                # プロフィールと前回の指示は縮約対象外。最終段階でも全文を残す。
+                profile_section,
                 missing_section,
                 table_section,
                 _render_worklogs(
                     dates, worklogs, vault_available, body_char_limit
                 ),
                 reflection_section,
+                previous_section,
             ]
         )
         context = f"{context}\n"
@@ -501,6 +616,8 @@ def write_context(
     data_dir: Path | None = None,
     vault_dir: Path | None = None,
     max_chars: int = MAX_CONTEXT_CHARS,
+    profile_file: Path | None = None,
+    previous_report: Path | None = None,
 ) -> Path:
     """contextを生成してdata/contextへ保存する。"""
     resolved_data_dir = data_dir or DATA_DIR
@@ -510,6 +627,8 @@ def write_context(
         data_dir=resolved_data_dir,
         vault_dir=vault_dir,
         max_chars=max_chars,
+        profile_file=profile_file,
+        previous_report=previous_report,
     )
     output_dir = resolved_data_dir / "context"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -556,6 +675,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=MAX_CONTEXT_CHARS,
         help=f"contextの文字数上限 (既定: {MAX_CONTEXT_CHARS})",
     )
+    parser.add_argument(
+        "--previous",
+        type=Path,
+        default=None,
+        help="前回レポートのパス (既定: data/reports から自動選択)",
+    )
     return parser
 
 
@@ -563,7 +688,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         output_path = write_context(
-            args.days, args.end, max_chars=args.max_chars
+            args.days,
+            args.end,
+            max_chars=args.max_chars,
+            previous_report=args.previous,
         )
     except ValueError as error:
         print(f"エラー: {error}", file=sys.stderr)

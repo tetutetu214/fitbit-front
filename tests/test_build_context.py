@@ -5,7 +5,29 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from scripts import build_context
+
+
+@pytest.fixture(autouse=True)
+def isolate_profile(tmp_path, monkeypatch) -> None:
+    """本人の実プロフィールをテストへ混入させない。既定は未作成扱いにする。"""
+    monkeypatch.setenv("PROFILE_FILE", str(tmp_path / "no-profile.md"))
+
+
+def _write_profile(tmp_path: Path, body: str) -> Path:
+    profile_file = tmp_path / "profile" / "about_me.md"
+    profile_file.parent.mkdir(parents=True, exist_ok=True)
+    profile_file.write_text(body, encoding="utf-8")
+    return profile_file
+
+
+def _write_report(data_dir: Path, name: str, body: str) -> Path:
+    report_path = data_dir / "reports" / name
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(body, encoding="utf-8")
+    return report_path
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
@@ -281,3 +303,147 @@ def test_main_prints_generated_context_character_count(
     captured = capsys.readouterr()
     assert exit_code == 0
     assert f"合計文字数: {total_chars}" in captured.out
+
+
+def test_profile_is_bundled_in_full_at_the_top_of_the_context(tmp_path) -> None:
+    profile_file = _write_profile(
+        tmp_path,
+        "## 生活\n朝のトレーニングを毎日する。\n\n## 目標\n体脂肪率を15%にする。\n",
+    )
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=tmp_path / "missing-vault",
+        profile_file=profile_file,
+    )
+
+    assert context.startswith(
+        "# 体調分析コンテキスト\n\n## 本人プロフィール\n\n"
+        "## 生活\n朝のトレーニングを毎日する。\n\n## 目標\n体脂肪率を15%にする。\n\n"
+        "## 期間と欠測日の一覧"
+    )
+
+
+def test_absent_profile_shows_the_setup_guidance(tmp_path) -> None:
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=tmp_path / "missing-vault",
+        profile_file=tmp_path / "profile" / "about_me.md",
+    )
+
+    assert (
+        "## 本人プロフィール\n\n（未作成。profile/about_me.example.md をコピーして書く）"
+        in context
+    )
+
+
+def test_profile_stays_full_even_when_worklog_shrinks_to_headings_only(
+    tmp_path,
+) -> None:
+    profile_body = "## 生活\n" + "朝のトレーニングは固定。" * 100
+    profile_file = _write_profile(tmp_path, f"{profile_body}\n")
+    vault_dir = tmp_path / "vault"
+    worklog_path = vault_dir / "worklog" / "2026-04-01.md"
+    worklog_path.parent.mkdir(parents=True)
+    entries = "\n".join(
+        f"## 00:00 Entry {index}\n{'あ' * 1_000}" for index in range(2_000)
+    )
+    worklog_path.write_text(f"{entries}\n", encoding="utf-8")
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=vault_dir,
+        max_chars=100_000,
+        profile_file=profile_file,
+    )
+
+    # worklogは見出しのみまで縮んでも、プロフィールは全文が残る。
+    assert "あ" not in context
+    assert profile_body in context
+
+
+def test_only_the_weekly_instruction_section_of_the_previous_report_is_bundled(
+    tmp_path,
+) -> None:
+    data_dir = tmp_path / "data"
+    _write_report(
+        data_dir,
+        "2026-03-25_analysis.md",
+        """---
+generated_at: "2026-03-25T20:00:00+09:00"
+---
+## 今の状態
+
+安静時心拍数は61bpm。
+
+## 今週の指示
+
+**23時以降の作業を避ける**
+
+- 根拠データ: 03-20の睡眠効率91%
+
+## 指示の確認
+
+就寝時刻は自分で決められるか。
+""",
+    )
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert context.endswith(
+        "## 前回の指示と予測（2026-03-25 作成）\n\n"
+        "**23時以降の作業を避ける**\n\n"
+        "- 根拠データ: 03-20の睡眠効率91%\n"
+    )
+    assert "安静時心拍数は61bpm。" not in context
+    assert "就寝時刻は自分で決められるか。" not in context
+    assert 'generated_at: "2026-03-25T20:00:00+09:00"' not in context
+
+
+def test_absent_previous_report_is_reported_as_the_first_run(tmp_path) -> None:
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=tmp_path / "data",
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert context.endswith("## 前回の指示と予測\n\n初回のため無し\n")
+
+
+def test_report_dated_after_the_end_date_is_not_chosen_as_the_previous_one(
+    tmp_path,
+) -> None:
+    data_dir = tmp_path / "data"
+    _write_report(
+        data_dir,
+        "2026-03-25_analysis.md",
+        "## 今週の指示\n\n過去のレポートの指示\n",
+    )
+    _write_report(
+        data_dir,
+        "2026-04-08_analysis.md",
+        "## 今週の指示\n\n未来のレポートの指示\n",
+    )
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert "## 前回の指示と予測（2026-03-25 作成）" in context
+    assert "過去のレポートの指示" in context
+    assert "未来のレポートの指示" not in context
