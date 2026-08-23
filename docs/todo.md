@@ -1,8 +1,9 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-23 -->
-- ⏳てつてつ: `data/reports/2026-08-22_analysis.md`（Opus 4.5 の初回分析）を読んで Google Health Coach と比較し、サイクル 1 の go/no-go を判定
-- 判定が go なら: プロンプト改善（計算ミス対策・平均睡眠 5h45m を見出しに）→ 理解度テスト → PR 作成（feature/bedrock-analysis、75d1a22 まで push 済み）→ arch-sparring（自動化と認証方式）
+- ⏳てつてつ: トレーナー役の `data/reports/2026-08-22_analysis.md` を読み、「指示の確認」3 点に答える（答えは profile/about_me.md に追記する）
+- 次: 理解度テスト → PR 作成（feature/bedrock-analysis、04c519a まで push 済み）→ 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）
+- 運用: 週 1 回（日曜朝）に fetch → build_context → analyze を回して「前回の答え合わせ」を溜める
 
 ## サイクル 0（2026-08-23 着手）
 - [x] 方向転換の整理と docs/plan.md 起草
@@ -12,7 +13,7 @@
 - [x] テスト（pytest 30 件、ruff 0 件、reviewer 指摘 10 件修正済み）
 - [x] Fitbit 再認証 → 60 日バックフィル（API 12 回、エラー 0）
 - [x] Bedrock 分析実行（Opus 4.5。Claude 5 系はアカウント未提供）
-- [ ] 出力の質を判定（純正コーチ比）→ サイクル 1 の go/no-go
+- [x] 出力の質を判定 → go（トレーナー役 + プロフィール同梱で再実行済み、出典 URL 実在確認済み）
 
 ## 保留（Won't リストは docs/plan.md §3）
 - Issue #70 intraday 心拍（サイクル 0 の判定後に再検討）
