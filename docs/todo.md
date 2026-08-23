@@ -1,9 +1,8 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-23 -->
-- ⏳てつてつ: Fitbit 再認証（`.venv/bin/python scripts/auth.py` → ブラウザ認可 → `.venv/bin/python scripts/auth.py <code>`）→ `.venv/bin/python scripts/fetch_data.py --days 60`
-- ⏳てつてつ: `aws login` → Claude がモデル ID 確認 → `build_context.py` → `analyze_bedrock.py` を実行し、出力の質を Google Health Coach と比較して判定
-- 判定後: PR 作成（feature/bedrock-analysis、5138f84 まで push 済み）→ サイクル 1 の go/no-go
+- ⏳てつてつ: `data/reports/2026-08-22_analysis.md`（Opus 4.5 の初回分析）を読んで Google Health Coach と比較し、サイクル 1 の go/no-go を判定
+- 判定が go なら: プロンプト改善（計算ミス対策・平均睡眠 5h45m を見出しに）→ 理解度テスト → PR 作成（feature/bedrock-analysis、75d1a22 まで push 済み）→ arch-sparring（自動化と認証方式）
 
 ## サイクル 0（2026-08-23 着手）
 - [x] 方向転換の整理と docs/plan.md 起草
@@ -11,8 +10,8 @@
 - [x] `scripts/build_context.py` 新規（Fitbit + Tanita + Vault worklog/reflections → Markdown）
 - [x] `scripts/analyze_bedrock.py` 新規（Converse API → `data/reports/`）
 - [x] テスト（pytest 30 件、ruff 0 件、reviewer 指摘 10 件修正済み）
-- [ ] てつてつ: Fitbit 再認証 → バックフィル実行
-- [ ] てつてつ: `aws login` → モデル ID 確認 → 分析実行
+- [x] Fitbit 再認証 → 60 日バックフィル（API 12 回、エラー 0）
+- [x] Bedrock 分析実行（Opus 4.5。Claude 5 系はアカウント未提供）
 - [ ] 出力の質を判定（純正コーチ比）→ サイクル 1 の go/no-go
 
 ## 保留（Won't リストは docs/plan.md §3）
