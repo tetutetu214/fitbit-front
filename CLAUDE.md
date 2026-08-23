@@ -12,8 +12,9 @@ Fitbit Web API（日次サマリ）と Tanita Health Planet の体データを�
 ## 実行
 - 認証: `python scripts/auth.py` → ブラウザ認可 → `python scripts/auth.py <code>`（URL 手貼り方式）
 - 取得: `python scripts/fetch_data.py --days 60`
-- 分析: `aws login` 後に `python scripts/build_context.py` → `python scripts/analyze_bedrock.py --model-id <inference-profile-id>`
-- テスト: `python -m pytest tests/`
+- 文脈生成: `python scripts/build_context.py --days 60`
+- 分析: `aws login` 後に `python scripts/analyze_bedrock.py --model-id <inference-profile-id>`
+- テスト・静的解析 (`requirements-dev.txt`): `python -m pytest tests/ -q` / `ruff check scripts/fetch_data.py scripts/build_context.py scripts/analyze_bedrock.py tests`
 
 ## 秘密情報
 - `.env`（FITBIT_CLIENT_ID / FITBIT_CLIENT_SECRET / TANITA_*）と `data/tokens.json` の中身を画面に出さない

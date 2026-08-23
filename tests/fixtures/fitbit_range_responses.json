@@ -1,0 +1,94 @@
+{
+  "heartrate": {
+    "activities-heart": [
+      {
+        "dateTime": "2026-04-01",
+        "value": {"restingHeartRate": 61}
+      },
+      {
+        "dateTime": "2026-04-03",
+        "value": {"restingHeartRate": 63}
+      }
+    ]
+  },
+  "sleep": {
+    "sleep": [
+      {
+        "dateOfSleep": "2026-04-02",
+        "startTime": "2026-04-01T23:30:00.000",
+        "isMainSleep": true,
+        "efficiency": 88,
+        "minutesAsleep": 400,
+        "timeInBed": 450,
+        "levels": {
+          "summary": {
+            "deep": {"minutes": 60},
+            "light": {"minutes": 250},
+            "rem": {"minutes": 70},
+            "wake": {"minutes": 70}
+          }
+        }
+      }
+    ]
+  },
+  "hrv": {
+    "hrv": [
+      {
+        "dateTime": "2026-04-01",
+        "value": {"dailyRmssd": 28.5}
+      },
+      {
+        "dateTime": "2026-04-03",
+        "value": {"dailyRmssd": 30.5}
+      }
+    ]
+  },
+  "spo2": [
+    {
+      "dateTime": "2026-04-01",
+      "value": {"avg": 96.1, "min": 94.8, "max": 97.2}
+    },
+    {
+      "dateTime": "2026-04-03",
+      "value": {"avg": 95.9, "min": 94.5, "max": 97.0}
+    }
+  ],
+  "activities": {
+    "steps": {
+      "activities-steps": [
+        {"dateTime": "2026-04-01", "value": "1234"},
+        {"dateTime": "2026-04-02", "value": "0"}
+      ]
+    },
+    "activityCalories": {
+      "activities-activityCalories": [
+        {"dateTime": "2026-04-01", "value": "456"},
+        {"dateTime": "2026-04-02", "value": "120"}
+      ]
+    },
+    "minutesSedentary": {
+      "activities-minutesSedentary": [
+        {"dateTime": "2026-04-01", "value": "600"},
+        {"dateTime": "2026-04-02", "value": "720"}
+      ]
+    },
+    "minutesLightlyActive": {
+      "activities-minutesLightlyActive": [
+        {"dateTime": "2026-04-01", "value": "100"},
+        {"dateTime": "2026-04-02", "value": "40"}
+      ]
+    },
+    "minutesFairlyActive": {
+      "activities-minutesFairlyActive": [
+        {"dateTime": "2026-04-01", "value": "20"},
+        {"dateTime": "2026-04-02", "value": "10"}
+      ]
+    },
+    "minutesVeryActive": {
+      "activities-minutesVeryActive": [
+        {"dateTime": "2026-04-01", "value": "10"},
+        {"dateTime": "2026-04-02", "value": "5"}
+      ]
+    }
+  }
+}
