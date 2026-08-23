@@ -402,6 +402,24 @@ def _date_list(values: list[str]) -> str:
     return ", ".join(values) if values else "なし"
 
 
+def _format_measurement(value: MetricValue) -> str:
+    """Tanita 計測値は生の桁のまま返す。一覧では 55.0 を 55 に丸めない。"""
+    return "-" if value is None else str(value)
+
+
+def _render_tanita_measured_days(
+    measured_days: list[tuple[str, str]],
+) -> list[str]:
+    """まばらな Tanita 計測を読み落とさないよう計測日を明示する。"""
+    if not measured_days:
+        return ["- Tanita 計測日: なし"]
+    listed = ", ".join(text for _, text in measured_days)
+    return [
+        f"- Tanita 計測日 ({len(measured_days)} 日): {listed}",
+        f"- Tanita 最終計測日: {measured_days[-1][0]}",
+    ]
+
+
 def _render_table(
     dates: list[date],
     fitbit_by_date: dict[str, JsonObject],
@@ -422,6 +440,7 @@ def _render_table(
     ]
     bedtimes: list[int] = []
     wake_times: list[int] = []
+    tanita_measured: list[tuple[str, str]] = []
     for current in dates:
         date_string = current.isoformat()
         fitbit = extract_fitbit_metrics(fitbit_by_date.get(date_string))
@@ -432,6 +451,13 @@ def _render_table(
             bedtimes.append(bedtime)
         if isinstance(wake_time, int):
             wake_times.append(wake_time)
+        if tanita["weight"] is not None or tanita["body_fat"] is not None:
+            measured_text = (
+                f"{date_string} "
+                f"{_format_measurement(tanita['weight'])}kg/"
+                f"{_format_measurement(tanita['body_fat'])}%"
+            )
+            tanita_measured.append((date_string, measured_text))
         values = [
             date_string,
             _format_metric(fitbit["resting_hr"]),
@@ -457,6 +483,7 @@ def _render_table(
             "",
             _render_clock_distribution("就寝時刻", bedtimes, BEDTIME_RANGE),
             _render_clock_distribution("起床時刻", wake_times, WAKE_RANGE),
+            *_render_tanita_measured_days(tanita_measured),
         ]
     )
     return "\n".join(lines)

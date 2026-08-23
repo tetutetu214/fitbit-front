@@ -591,3 +591,63 @@ def test_longest_sleep_is_used_when_no_record_is_flagged_as_main(tmp_path) -> No
         line for line in context.splitlines() if line.startswith("| 2026-04-01 ")
     )
     assert "| 23:55 | 05:55 | 420 | 92 |" in row
+
+
+def _tanita_day(weight: float, body_fat: float) -> dict[str, Any]:
+    return {"measurements": {"08:00": {"weight": weight, "body_fat": body_fat}}}
+
+
+def test_only_measured_days_are_listed_in_date_order(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    # 3日中2日だけ計測。書き込み順は新しい日付が先でも一覧は古い順になる。
+    _write_json(
+        data_dir / "daily_tanita" / "2026-04-03.json", _tanita_day(55.0, 15.4)
+    )
+    _write_json(
+        data_dir / "daily_tanita" / "2026-04-01.json", _tanita_day(57.4, 16.5)
+    )
+
+    context = build_context.build_context(
+        days=3,
+        end_date=date(2026, 4, 3),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert (
+        "- Tanita 計測日 (2 日): 2026-04-01 57.4kg/16.5%, "
+        "2026-04-03 55.0kg/15.4%" in context
+    )
+
+
+def test_last_measurement_date_is_the_latest_measured_day(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    _write_json(
+        data_dir / "daily_tanita" / "2026-04-01.json", _tanita_day(57.4, 16.5)
+    )
+    _write_json(
+        data_dir / "daily_tanita" / "2026-04-03.json", _tanita_day(55.0, 15.4)
+    )
+    # 最終日は計測なし。表の最終行ではなく最後の計測日を指すことを確かめる。
+    _write_json(data_dir / "daily_tanita" / "2026-04-05.json", {})
+
+    context = build_context.build_context(
+        days=5,
+        end_date=date(2026, 4, 5),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert "- Tanita 最終計測日: 2026-04-03" in context
+
+
+def test_measurement_list_says_none_when_no_day_was_measured(tmp_path) -> None:
+    context = build_context.build_context(
+        days=3,
+        end_date=date(2026, 4, 3),
+        data_dir=tmp_path / "data",
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert "- Tanita 計測日: なし" in context
+    assert "- Tanita 最終計測日:" not in context
