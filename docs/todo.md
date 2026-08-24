@@ -1,11 +1,18 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-24 -->
-- PR #71 マージ済み（08-24、merge commit a4334ae、ブランチ削除済み）
-- 次: 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）→ コーチカード実装
-- 週次運用: 日曜朝に fetch → build_context → analyze（--end は前日）で「前回の答え合わせ」を溜める。次回は 08-31 ごろ
+- ⏳てつてつ: docs/spec.md（コーチカード）の確認。OK なら Codex 委譲で実装開始（ブランチ feature/coach-card）
+- 08-31 日曜朝: 週次解析（aws login → fetch → build_context → analyze）＋ Cost Explorer で 08-23 の Opus 4.5 分にクレジットが当たっているか確認（RECORD_TYPE=Credit/Usage）。当たっていれば日次モデルを Opus 4.5 に切替
 - reviewer の non-blocking 指摘 4 件（見出しの正規表現化・ValueError 前の警告順序・auth 断片入力・+デコード）は次の実装ついでに拾う
-- 運用: 週 1 回（日曜朝）に fetch → build_context → analyze を回して「前回の答え合わせ」を溜める
+
+## サイクル 1 コーチカード（2026-08-24 設計、spec.md）
+- [x] arch-sparring で実行経路を決定（ADR-001: Vite ミドルウェア）
+- [x] docs/spec.md 起草
+- [ ] `scripts/coach_daily.py` / `analyze_bedrock.py --prompt --output` / `prompts/coach_daily.md`
+- [ ] `vite/coach-plugin.ts` + Vitest 5 件
+- [ ] `src/components/CoachCard.tsx` + `App.tsx` 1 行
+- [ ] 実物 1 件で loading → ready を目視、数値検算、初回コストを knowledge.md に記録
+- [ ] PR 作成（理解度テスト → reviewer）
 
 ## サイクル 0（2026-08-23 着手）
 - [x] 方向転換の整理と docs/plan.md 起草

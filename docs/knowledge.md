@@ -43,3 +43,14 @@
 - 見出しリテラルの正本は prompts/health_analysis.md。プロンプトの出力形式を変えたら build_context.py の INSTRUCTION_HEADING_PREFIXES も変える（二重管理に注意）。
 - review-gate（判定 JSON 必須）と delegate-gate（書き込みブロック）の hook 衝突が 2 回発生。auto モード分類器は代筆も拒否するため、最終配置はてつてつ本人が実行した。恒久修正は claude-env 側（.review-verdicts/ を delegate-gate の例外に）。
 - snap 版 gh は --body-file の /tmp を読めない（再発）。リポジトリ内に cp してから gh pr create → rm。
+
+## 2026-08-24 ADR-001 コーチカードの実行経路（arch-sparring）
+- 錨（5 軸）: トラフィック=自分だけ / データ=読み書き・1 日 1 回キャッシュ / 予算=月数百円 / 運用=放置不要だが毎回の手間は最小に / 目的=本人専用。「起動」＝ `npm run dev` でダッシュボードを開いたとき。
+- **選んだ案**: Vite dev サーバのミドルウェア（`configureServer`）で `GET /api/coach` を提供し、今日のレポートが無ければ Python パイプラインを 1 回だけ spawn する。1 プロセスで「開く→解析中→カード」の体験が作れる唯一の案。
+- **捨てた案**: (a) FastAPI ローカル API — 技術的には素直だが 2 プロセス起動が運用軸に不利。Node 側が 100 行を超えて育ったら移行する（spawn 部分を proxy に差し替えるだけ）。(b) predev 同期実行 — 最も簡単だが解析が終わるまでブラウザが開かず、`aws login` 失効が「無言で古いカード」になる。(c) クラウド常駐（EventBridge Scheduler + Lambda）— Vault が Windows ローカルにあり Lambda から読めない。Fitbit トークンをクラウドに置く必要もあり長期キーゼロ方針と衝突。
+- **決め手の軸**: 運用負荷（1 プロセス）と起動の定義（開いたときに動く）。
+- **覆る条件**: 静的ビルドで使いたくなった / 進捗ストリームなどで Node 側ロジックが育った / 他人やスマホから見せたくなった → FastAPI へ。Vault を S3 に同期する仕組みができた → クラウド常駐を再検討。
+- **自分への反論と対策**: リロード連打で spawn が二重に走り Bedrock を 2 回呼ぶ → モジュールスコープの inflight Promise で排他（受け入れ条件に含めた）。dev サーバに業務ロジックを混ぜる不純さは「本人専用・dev のみ」の軸だけが根拠なので、前提が変わったら即移行。
+- **コストの矛盾と 2 段構成**: 前回実績（入力 108,904 / 出力 2,410 トークン、Opus 4.5 $5/$25 per 1M）は 1 回 ≈ $0.61。日次で回すと月 ≈ $18（¥2,700）で「月数百円」を超える。週次 Opus 60 日（月 ≈ ¥390）はそのまま、日次は 7 日文脈＋週次レポート参照を Sonnet 4.5（$3/$15）で ≈ ¥360/月、の 2 段に分けた。Claude 5 系はこのアカウント未提供のため候補外。
+- **クレジット調査（本人質問への回答）**: AWS Promotional Credit 規約は AWS Marketplace を対象外と明記し Bedrock の例外条項なし。Bedrock の third-party モデル（Anthropic・Qwen・DeepSeek 等）は Marketplace 経由請求のため、CB クレジットでは規約上は対象外の公算。Activate 規約だけ「AWS Marketplace is an Eligible Service solely when incurring Bedrock 3P Model Spend」の例外あり（2024-04〜）。Amazon 自社モデル（Nova）は Bedrock 本体課金でクレジット対象。**確定は 08-31 の aws login 時に Cost Explorer（RECORD_TYPE=Credit / Usage）で 08-23 の Opus 4.5 分がどう載るかを見る**。当たっていれば日次も Opus に切替（設定値のみ）。出典: aws.amazon.com/awscredits/ 、aws.amazon.com/activate/terms/ 、aws.amazon.com/legal/bedrock/third-party-models/ 、aws.amazon.com/blogs/startups/aws-activate-credits-now-accepted-for-third-party-models-on-amazon-bedrock/（調査日 2026-08-24）。
+- 料金 MCP（awspricing）は `aws login` 前提で未認証時は使えない。今回は公式ページ＋AWS ブログで代替した。
