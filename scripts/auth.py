@@ -13,7 +13,7 @@ import os
 import secrets
 import sys
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import requests
 from dotenv import load_dotenv
@@ -55,6 +55,16 @@ def build_auth_url(client_id: str, code_challenge: str) -> str:
         "redirect_uri": REDIRECT_URI,
     }
     return f"https://www.fitbit.com/oauth2/authorize?{urlencode(params)}"
+
+
+def extract_auth_code(value: str) -> str:
+    """認可コード単体またはリダイレクト先URLから認可コードを返す。"""
+    stripped_value = value.strip()
+    query = parse_qs(urlsplit(stripped_value).query, keep_blank_values=True)
+    codes = query.get("code")
+    if codes:
+        return codes[0].strip()
+    return stripped_value
 
 
 def exchange_code(client_id: str, client_secret: str, code: str, code_verifier: str) -> dict:
@@ -100,7 +110,7 @@ def step1_generate_url():
     print("\n=== Step 1: 以下のURLをブラウザで開いて認可してください ===")
     print(f"\n{auth_url}\n")
     print("認可後、アドレスバーのURLから code= の値をコピーして、以下を実行：")
-    print("  python scripts/auth.py <認可コード>\n")
+    print("  .venv/bin/python scripts/auth.py '<リダイレクト先のURLまるごと>'\n")
 
 
 def step2_exchange(auth_code: str):
@@ -127,7 +137,7 @@ def step2_exchange(auth_code: str):
 
 def main():
     if len(sys.argv) >= 2:
-        auth_code = sys.argv[1].strip().rstrip("#_=_").strip()
+        auth_code = extract_auth_code(sys.argv[1])
         step2_exchange(auth_code)
     else:
         step1_generate_url()
