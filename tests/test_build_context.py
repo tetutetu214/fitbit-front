@@ -725,3 +725,33 @@ def test_measurement_list_says_none_when_no_day_was_measured(tmp_path) -> None:
 
     assert "- Tanita 計測日: なし" in context
     assert "- Tanita 最終計測日:" not in context
+
+
+def test_write_context_keeps_the_weekly_default_output_path(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+
+    output_path = build_context.write_context(
+        days=1,
+        end_date=date(2026, 4, 3),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    assert output_path == data_dir / "context" / "2026-04-03_context.md"
+
+
+def test_write_context_uses_the_explicit_output_path(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    requested_path = data_dir / "context" / "2026-04-04_coach_context.md"
+
+    output_path = build_context.write_context(
+        days=1,
+        end_date=date(2026, 4, 3),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+        output_path=requested_path,
+    )
+
+    assert output_path == requested_path
+    assert requested_path.is_file()
+    assert not (data_dir / "context" / "2026-04-03_context.md").exists()

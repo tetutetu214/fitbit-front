@@ -50,7 +50,8 @@ plan.md §3 の Won't「ダッシュボード画面の改修」は「`Dashboard.
 
 ### 3.3 子プロセスの扱い
 
-- `spawn("python", ["scripts/coach_daily.py", "--date", targetDate, "--model-id", modelId], {stdio: ["ignore", "pipe", "pipe"], detached: true})`。stdout/stderr は常に読み捨て（パイプ詰まりによる停止を防ぐ）、stderr は末尾 20 行だけ保持。
+- Python 実行体は `.venv/bin/python` が存在すればそれ、無ければ `python3`（素の `python` はこの環境に無い。knowledge.md 既知事項）。`spawn(pythonBin, ["scripts/coach_daily.py", "--date", targetDate, "--model-id", modelId], {stdio: ["ignore", "pipe", "pipe"], detached: true})`。stdout/stderr は常に読み捨て（パイプ詰まりによる停止を防ぐ）、stderr は末尾 20 行だけ保持。
+- 子が exit 4（別プロセスがロック保持中）を返したら、以後 10 秒間は再 spawn せず `running` を返す（3 秒ポーリングとの組で spawn 連打にしない）。`running` レスポンスの完成判定は spawn 時に固定した `targetDate` のファイルで行う。
 - 全体タイムアウト 600 秒。超過したらプロセスグループごと SIGTERM → 5 秒後 SIGKILL し、`error`（message は `timed_out`）。タイムアウト後の自動再試行はしない（60 秒キャッシュに乗る）。
 - `finally` で `inflight` を解放する。Vite 終了時（`server.httpServer.on("close")`）に子プロセスが残っていれば同じ手順で止める。
 - `modelId` は環境変数 `COACH_MODEL_ID` のみから読む（`package.json` には書かない。二重定義を作らない）。未設定なら spawn せず `error`（message は「`COACH_MODEL_ID` が未設定」）。
@@ -61,7 +62,7 @@ plan.md §3 の Won't「ダッシュボード画面の改修」は「`Dashboard.
 
 - 引数: `--date`（必須、JST の対象日＝生成日）`--model-id`（必須）`--days`（既定 7）。
 - 排他: `data/reports/coach/.lock` を `fcntl.flock(LOCK_EX | LOCK_NB)` で取得。取れなければ exit 4（`already_running`。Node は `running` として扱う）。取得後に完成ファイルの存在を再確認し、あれば何もせず exit 0。
-- 手順: (1) `fetch_data.py --days {days}`（`--end` は既定＝JST の昨日） (2) `build_context.py --days {days} --end {昨日} --previous {最新週次レポート}` (3) 前日の `{date-1}_coach.md` があれば context の末尾に `## 前日のコーチカード` として全文を追記 (4) `analyze_bedrock.py --model-id … --context … --prompt prompts/coach_daily.md --output {tmp}`（tmp は同一ディレクトリの `.{date}_coach.md.tmp`） (5) 出力を検証（§4.4）して `os.replace` で最終名へ atomic rename。
+- 手順: (1) `fetch_data.py --days {days}`（`--end` は既定＝JST の昨日） (2) `build_context.py --days {days} --end {昨日} --previous {最新週次レポート} --output data/context/{date}_coach_context.md`（**週次の context と別名にする**。週次が日曜に作った `{end}_context.md` を月曜の日次が同名上書きし、週次の検算原本を壊す事故を防ぐ） (3) 前日の `{date-1}_coach.md` があれば **coach 用 context ファイル**の末尾に `## 前日のコーチカード` として全文を追記 (4) `analyze_bedrock.py --model-id … --context data/context/{date}_coach_context.md --prompt prompts/coach_daily.md --days {days} --output {tmp}`（context は明示指定。tmp はレポートと同一ディレクトリの `.{date}_coach.md.tmp`） (5) 出力を検証（§4.4）して `os.replace` で最終名へ atomic rename。
 - 終了コード（Node との契約）: 0 = 成功 / 3 = 認証失効（`analyze_bedrock.py` の exit 2 を変換） / 4 = ロック取得不可 / 1 = それ以外（argparse の 2 を含む子の非 0 はすべて 1 に正規化し、どの工程で落ちたかを stderr に 1 行出す）。
 - 最新週次レポートは `data/reports/*_analysis.md` のうちファイル名の日付が `--date` 以前で最大のもの。無ければ `--previous` を渡さず、prompt 側で「週次の指示なし」として扱う。
 
@@ -70,14 +71,18 @@ plan.md §3 の Won't「ダッシュボード画面の改修」は「`Dashboard.
 - `--prompt`（既定 `prompts/health_analysis.md`）と `--output`（既定は現行の `data/reports/{end}_analysis.md`）を追加。既定値で呼べば週次の挙動（プロンプト・出力先・Bedrock リクエスト本文）は変わらない。
 - YAML frontmatter に `model_id` / `generated_at`（タイムゾーン付き）/ `end` / `days` / `prompt` を書く（既存の frontmatter に不足分を追加）。
 - `--max-tokens` を追加（既定は現行 4000。日次は 1500 を渡す。出力課金の上限）。
+- `--days` を追加（frontmatter の `days` はこの引数を正とする。context 本文の散文からの正規表現抽出は引数省略時のフォールバックに格下げ。抽出失敗で `days: null` → 恒久 `report_invalid` になる経路を塞ぐ）。
+- Converse レスポンスの `stopReason` を確認し、`max_tokens` なら出力切れとして exit 1（メッセージに「maxTokens 上限で切れた」を含める。切れた出力を §4.4 の検証に回して原因不明の `.rejected` にしない）。
 
 ### 4.3 `scripts/build_context.py`
 
-変更なし（`--days 7 --previous <週次レポート>` で流用）。
+`--output` を追加（既定は従来の `data/context/{end}_context.md` のままで週次挙動は不変）。他は変更なし。
 
 ### 4.4 出力の検証（`coach_daily.py` 内、`ready` の条件）
 
 frontmatter が YAML として読める / 本文に `## 今日の一手` `## 昨日の答え合わせ` `## 根拠データ` `## 注意` の 4 見出しが**この順で各 1 回**ある / これ以外の `## ` 見出しが無い / 各セクション本文が非空 / 本文合計 1,200 文字以内。1 つでも落ちたら tmp を `.{date}_coach.md.rejected` に改名して exit 1（当日の再試行は可能。rejected は人が読んで捨てる）。Node 側も `ready` を返す前に同じ検証を行う（Python が書いた後に人が手で壊した場合の防御）。
+
+二重実装の乖離を防ぐ共通規則: 行分割は LF（`\n`）のみ（Python も `splitlines()` ではなく `split("\n")` を使う。U+2028 等の Unicode 改行で片側だけ分割される乖離を防ぐ）/ frontmatter のキーと値は strip 後に比較 / この規則を両実装のコメントに明記し、同一入力 9 ケース（正常・U+2028 混入・先頭空白キー・コロン入り値・日本語値ほか）の往復パリティテストを Python・Node 双方に置く。
 
 ### 4.5 `prompts/coach_daily.md`（新規）
 
@@ -87,7 +92,7 @@ frontmatter が YAML として読める / 本文に `## 今日の一手` `## 昨
 
 - `src/components/CoachCard.tsx`（新規）: 5 状態を描画する。`loading`（初回取得中）/ `running`（「解析中… N 秒」を `startedAt` からの経過秒で更新）/ `ready`（セクションごとに見出し＋本文。`- ` 始まりの行だけ箇条書き、それ以外は段落。Markdown ライブラリは追加しない）/ `auth_required`（手順 1 行＋「再読み込み」ボタン。押すと即 fetch）/ `error`（message ＋ `retryAfter` 秒のカウントダウン ＋ logTail を折りたたみ）。fetch 例外・非 JSON・404 は `error`（message は「dev サーバに接続できません」）。
 - ポーリング: `running` のときだけ 3 秒間隔。`ready` / `auth_required` / `error` に入ったら止める。アンマウント時にタイマーを解除する。
-- `src/App.tsx`: `Dashboard` の上に `<CoachCard />` を 1 行差し込む。`Dashboard.tsx` 以下は変更しない。
+- `src/App.tsx`: `<CoachCard />` は health.json の読み込み状態（loading / error）に**関わらず常に表示**する（早期 return の外に置く。health.json が壊れていてもコーチカードは独立して動く）。`Dashboard.tsx` 以下は変更しない。
 - `vite.config.ts`: `coachApiPlugin()` を plugins に追加（実体は `vite/coach-plugin.ts`）。
 - 見た目は既存のトークン（`bg1` / `text2` 等）と HeroScore と同じ角丸・余白を踏襲する。新規の美的方向性は起案しない（既存ダッシュボードの方向性を継承）。
 
@@ -138,7 +143,7 @@ spawn・時計・ファイルシステムをモックする（理由: 実 Bedroc
 ### 7.3 実物 1 件と完了の定義
 
 - 実際に `npm run dev` → ブラウザで `running → ready` を目視し、生成された `coach.md` の数値主張を `data/context/*.md` と突き合わせる（週次で固めた検算手順）。
-- 既存の pytest 53 件・ruff 0 件が維持されること。
+- 既存の pytest 53 件・ruff 0 件・`npm run lint`（ESLint）0 件・`npx tsc -b --noEmit` 0 件が維持されること。
 - 完了の定義: 上記すべて＋ `docs/knowledge.md` に初回実行の入出力トークン数と実コストを記録し、§6 の表を実測で更新。
 
 ## 8. 作らないもの（このサイクル）

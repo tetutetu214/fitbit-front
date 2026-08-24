@@ -779,6 +779,7 @@ def write_context(
     max_chars: int = MAX_CONTEXT_CHARS,
     profile_file: Path | None = None,
     previous_report: Path | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     """contextを生成してdata/contextへ保存する。"""
     resolved_data_dir = data_dir or DATA_DIR
@@ -791,11 +792,12 @@ def write_context(
         profile_file=profile_file,
         previous_report=previous_report,
     )
-    output_dir = resolved_data_dir / "context"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{end_date.isoformat()}_context.md"
-    output_path.write_text(context, encoding="utf-8")
-    return output_path
+    resolved_output_path = output_path or (
+        resolved_data_dir / "context" / f"{end_date.isoformat()}_context.md"
+    )
+    resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_output_path.write_text(context, encoding="utf-8")
+    return resolved_output_path
 
 
 def _positive_int(value: str) -> int:
@@ -842,6 +844,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="前回レポートのパス (既定: data/reports から自動選択)",
     )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="出力先 (既定: data/context/{end}_context.md)",
+    )
     return parser
 
 
@@ -853,6 +860,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.end,
             max_chars=args.max_chars,
             previous_report=args.previous,
+            output_path=args.output,
         )
     except ValueError as error:
         print(f"エラー: {error}", file=sys.stderr)

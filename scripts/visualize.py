@@ -2,10 +2,11 @@
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -41,7 +42,9 @@ def extract_metrics(data: dict) -> dict:
         "hrv_rmssd": [], "spo2_avg": [],
     }
     for date_str, day in data.items():
-        metrics["dates"].append(datetime.strptime(date_str, "%Y-%m-%d"))
+        metrics["dates"].append(
+            datetime.strptime(date_str, "%Y-%m-%d")  # noqa: DTZ007
+        )
         metrics["date_labels"].append(date_str[5:])  # "04-05" 形式
 
         hr_data = day.get("heartrate", {}).get("activities-heart", [{}])
@@ -136,7 +139,7 @@ def plot_dashboard(metrics: dict):
     ax = axes[0, 1]
     ax.set_facecolor("#fff")
     colors = ["#2ecc71" if s >= 10000 else "#3498db" for s in metrics["steps"]]
-    bars = ax.bar(x, metrics["steps"], color=colors, width=0.5, zorder=3)
+    ax.bar(x, metrics["steps"], color=colors, width=0.5, zorder=3)
     ax.axhline(y=10000, color="#e74c3c", linestyle="--", alpha=0.6, linewidth=1.5, label="Goal: 10,000")
     for i, s in enumerate(metrics["steps"]):
         if s > 0:
@@ -286,7 +289,7 @@ def print_summary(metrics: dict):
         print(f"  Sleep            : {hours}h {mins}m (efficiency: {eff}%)")
         print(f"    Deep: {metrics['deep_minutes'][idx]}m | Light: {metrics['light_minutes'][idx]}m | REM: {metrics['rem_minutes'][idx]}m | Wake: {metrics['wake_minutes'][idx]}m")
     else:
-        print(f"  Sleep            : N/A")
+        print("  Sleep            : N/A")
 
     hrv = metrics["hrv_rmssd"][idx]
     print(f"  HRV (RMSSD)      : {f'{hrv:.1f} ms' if hrv else 'N/A'}")
@@ -299,7 +302,7 @@ def print_summary(metrics: dict):
         label = "Good" if score >= 67 else "Moderate" if score >= 34 else "Poor"
         print(f"\n  Recovery Score   : {score:.0f}/100 ({label})")
     else:
-        print(f"\n  Recovery Score   : N/A (insufficient data)")
+        print("\n  Recovery Score   : N/A (insufficient data)")
 
     print(f"{'='*50}\n")
 

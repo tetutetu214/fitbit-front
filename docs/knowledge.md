@@ -60,3 +60,12 @@
 - 採用（spec v2 に反映）: 一時ファイル→検証→atomic rename / Python 側 flock と inflight の同期設定（TOCTOU）/ 600 秒タイムアウトとプロセスグループ kill・stdout/stderr の常時 drain / `coach_daily.py --date` で対象日を Node が決定・出力先を日次専用ディレクトリに固定 / 終了コードの正規化（認証=3、ロック=4、argparse の 2 は 1 へ）/ `auth_required` を 60 秒失敗キャッシュから除外 / 答え合わせの入力を「前日カードの今日の一手（無ければ週次の指示）」に定義 / frontmatter から modelId・generatedAt を返す / 4 見出しの厳密検証 / フロントのポーリング終了条件 / logTail のバイト上限 / コスト表の内訳化（16k = 12.7k 按分 + 固定 3.3k）と出力上限 maxTokens 1500。
 - 不採用: 永続実行台帳（課金後クラッシュの逐次二重呼び出しは最悪 $0.08、本人専用で台帳の実装コストが上回る。要件を「同時実行と当日再実行を防ぐ」に弱めて明記）/ JSON 構造化出力（Markdown のまま Vault に置きたい。検証で代替）/ stderr の機密除去（本人の画面にしか出ない）/ `data_pending` 状態（Fitbit 日次サマリは前日分までで欠測は既存処理が扱う）/ 別プロセス同時起動の自動テスト（flock の単体テストで代替）。
 - Codex には spec.md だけ渡したため「参照先の knowledge.md / plan.md が無い」という指摘（#16）が出た。意図的（成果物のみ渡す規律）だが、spec 側に移行条件と Won't の読み替えを転記して自己完結度を上げた。
+
+## 学習済み概念（理解度テスト正解済み）
+- 2026-08-24: コーチカードの役割分担（Vite ミドルウェアは起動判定・排他・タイムアウト・整形のみ、解析は Python）/ FastAPI 案を捨てた理由（2 プロセス起動が運用軸に不利、育ったら移行）/ 「1 日 1 回」保証を弱めたトレードオフ（課金後クラッシュの重複は最悪 $0.08、永続台帳の実装コストが上回る）
+
+## 2026-08-24 コーチカード実装（Codex 2 ラウンド + reviewer 2 巡）
+- Codex 1 巡目に reviewer（Opus 5）が要修正 11 件（blocking 3: `spawn('python')` ENOENT / ESLint exit 1 / **日次 context が週次 context を同名上書き**）。3 つ目は spec の欠陥で、`build_context.py --output` を追加して日次を `{date}_coach_context.md` に分離した（spec v2.1）。**「中間生成物のファイル名は誰と共有か」を spec 段階で確認するべきだった**。
+- Codex のハマり転記: (1) ESLint が `.venv` 内の matplotlib 同梱 JS を走査して警告 → `globalIgnores` に `.venv` 追加 (2) Vite は `VITE_` 接頭辞なしの環境変数を晒さないため `loadEnv(mode, cwd, 'COACH_')` で `COACH_MODEL_ID` だけ注入 (3) YAML 依存を足せないので frontmatter は Python/Node 双方に自作 scalar parser（LF 分割・strip 比較で統一、往復パリティテスト付き） (4) 日次 context のファイル名から analyze が終了日を推定できないため `--end` を明示。
+- reviewer 2 巡目 pass。non-blocking 4 件のうちプロンプト内の `## ` 節見出し（モデルが復唱すると検証で `.rejected`）は太字に降格して即修正。残 3 件は todo: パリティテストを差分検出 7 ケース（days の float 受理差・`generated_at` のタイムゾーン表記 4 形態）へ拡張 / `spawn` に `cwd` を明示 / いずれも現行パイプラインでは到達不能。
+- reviewer の検証副作用: `data/reports/coach/.lock`（0 バイト・gitignore 配下）が残存。無害。

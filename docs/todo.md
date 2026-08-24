@@ -5,14 +5,14 @@
 - 08-31 日曜朝: 週次解析（aws login → fetch → build_context → analyze）＋ Cost Explorer で 08-23 の Opus 4.5 分にクレジットが当たっているか確認（RECORD_TYPE=Credit/Usage）。当たっていれば日次モデルを Opus 4.5 に切替
 - reviewer の non-blocking 指摘 4 件（見出しの正規表現化・ValueError 前の警告順序・auth 断片入力・+デコード）は次の実装ついでに拾う
 
-## サイクル 1 コーチカード（2026-08-24 設計、spec.md）
+## サイクル 1 コーチカード（2026-08-24 設計、spec.md v2.1）
 - [x] arch-sparring で実行経路を決定（ADR-001: Vite ミドルウェア）
-- [x] docs/spec.md 起草
-- [ ] `scripts/coach_daily.py` / `analyze_bedrock.py --prompt --output` / `prompts/coach_daily.md`
-- [ ] `vite/coach-plugin.ts` + Vitest 5 件
-- [ ] `src/components/CoachCard.tsx` + `App.tsx` 1 行
-- [ ] 実物 1 件で loading → ready を目視、数値検算、初回コストを knowledge.md に記録
-- [ ] PR 作成（理解度テスト → reviewer）
+- [x] docs/spec.md 起草 → Codex 敵対的検証で v2 → reviewer 指摘で v2.1
+- [x] 実装一式（Codex 2 ラウンド。pytest 86 / ruff 0 / Vitest 28 / tsc 0 / ESLint 0）
+- [x] reviewer 2 巡（1 巡目 11 件修正 → 2 巡目 pass）、理解度テスト 3/3 正解
+- [ ] ⏳てつてつ: `aws login` → 実物 1 件で running → ready を目視、数値検算、初回コスト記録（COACH_MODEL_ID の実 ID 確定もここで）
+- [ ] PR 作成（実物確認の後）
+- [ ] reviewer non-blocking 3 件は次の実装ついでに拾う: パリティテストを差分 7 ケースへ拡張（days float / generated_at のタイムゾーン 4 形態）/ spawn に cwd 明示 / いずれも現行パイプライン非到達
 
 ## サイクル 0（2026-08-23 着手）
 - [x] 方向転換の整理と docs/plan.md 起草
