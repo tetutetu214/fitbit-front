@@ -24,6 +24,7 @@ WORKLOG_HEADING = re.compile(r"^## \d{2}:\d{2}(?:\s|$)")
 FRONTMATTER_DATE = re.compile(r"^date:\s*(.+?)\s*$")
 REPORT_FILENAME = re.compile(r"^(\d{4}-\d{2}-\d{2})_analysis\.md$")
 
+# 本人の生活習慣のハードコード。profile/about_me.md を変えたらここも見直す。
 # 就寝・起床時刻の「よくある範囲」。日をまたぐ就寝も正午基準のシフトで連続区間として扱う。
 BEDTIME_RANGE = (23 * 60 + 30, 30)
 WAKE_RANGE = (5 * 60 + 30, 6 * 60)
@@ -35,8 +36,9 @@ PROFILE_MISSING_SECTION = (
 )
 PREVIOUS_HEADING = "## 前回の指示と予測"
 PREVIOUS_NONE_SECTION = f"{PREVIOUS_HEADING}\n\n初回のため無し"
+# 正本は prompts/health_analysis.md の出力形式。プロンプトの見出しを変えたらここも変える。
 # 新プロンプトの見出しを先に探し、旧プロンプトで書かれたレポートも拾えるようにする。
-INSTRUCTION_HEADINGS = ("## 今週の指示", "## 来週試す1つ")
+INSTRUCTION_HEADING_PREFIXES = ("## 今週の指示", "## 来週試す1つ")
 
 
 @dataclass(frozen=True)
@@ -565,13 +567,13 @@ def _report_date(filename: str) -> date | None:
 
 
 def _latest_report(reports_dir: Path, end_date: date) -> tuple[date, Path] | None:
-    """end_dateより後の日付を除いた中で最新の分析レポートを返す。"""
+    """end_date以降の日付を除いた中で最新の分析レポートを返す。"""
     if not reports_dir.is_dir():
         return None
     candidates: list[tuple[date, Path]] = []
     for path in sorted(reports_dir.glob("*_analysis.md")):
         report_date = _report_date(path.name)
-        if report_date is None or report_date > end_date:
+        if report_date is None or report_date >= end_date:
             continue
         candidates.append((report_date, path))
     if not candidates:
@@ -593,9 +595,9 @@ def _resolve_previous_report(
 def extract_instruction_section(content: str) -> str:
     """レポートから指示の節だけを、次のH2見出しの手前まで取り出す。"""
     lines = _strip_frontmatter(content).splitlines()
-    for heading in INSTRUCTION_HEADINGS:
+    for heading in INSTRUCTION_HEADING_PREFIXES:
         for index, line in enumerate(lines):
-            if line.strip() != heading:
+            if not line.strip().startswith(heading):
                 continue
             section_end = len(lines)
             for candidate in range(index + 1, len(lines)):
@@ -623,6 +625,10 @@ def _render_previous(report: tuple[date | None, Path] | None) -> str:
         return PREVIOUS_NONE_SECTION
     section = extract_instruction_section(content)
     if not section:
+        print(
+            f"警告: {path} から前回の指示節を抜粋できません",
+            file=sys.stderr,
+        )
         return PREVIOUS_NONE_SECTION
     if report_date is None:
         return f"{PREVIOUS_HEADING}\n\n{section}"
@@ -711,7 +717,6 @@ def build_context(
         missing_lines.append("- Worklog 欠測日: Vault ディレクトリなし")
     missing_section = "\n".join(missing_lines)
     table_section = _render_table(dates, fitbit_by_date, tanita_by_date)
-    reflection_section = _render_reflections(reflections)
     profile_section = _render_profile(resolved_profile_file)
     previous_section = _render_previous(
         _resolve_previous_report(
@@ -719,7 +724,10 @@ def build_context(
         )
     )
 
-    for body_char_limit in (None, 600, 400, 300, 200, 0):
+    def render_context(
+        body_char_limit: int | None,
+        included_reflections: list[Reflection],
+    ) -> str:
         context = "\n\n".join(
             [
                 "# 体調分析コンテキスト",
@@ -730,13 +738,33 @@ def build_context(
                 _render_worklogs(
                     dates, worklogs, vault_available, body_char_limit
                 ),
-                reflection_section,
+                _render_reflections(included_reflections),
                 previous_section,
             ]
         )
-        context = f"{context}\n"
+        return f"{context}\n"
+
+    for body_char_limit in (None, 600, 400, 300, 200, 0):
+        context = render_context(body_char_limit, reflections)
         if len(context) <= max_chars:
             return context
+
+    for dropped_count in range(1, len(reflections) + 1):
+        context = render_context(0, reflections[dropped_count:])
+        if len(context) <= max_chars:
+            print(
+                "警告: context文字数上限のため Reflections を"
+                f"古い順に {dropped_count} 本省略しました",
+                file=sys.stderr,
+            )
+            return context
+
+    if reflections:
+        print(
+            "警告: context文字数上限のため Reflections を"
+            f"古い順に {len(reflections)} 本省略しました",
+            file=sys.stderr,
+        )
 
     raise ValueError(
         "worklog本文を省略してもcontextが文字数上限を超えます"

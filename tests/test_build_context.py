@@ -289,6 +289,37 @@ def test_worklog_falls_back_to_headings_only_when_truncation_is_not_enough(
     assert "あ" not in context
 
 
+def test_reflections_are_dropped_oldest_first_when_limit_is_tight(
+    tmp_path, capsys
+) -> None:
+    vault_dir = tmp_path / "vault"
+    reflection_dir = vault_dir / "wiki" / "reflections"
+    reflection_dir.mkdir(parents=True)
+    for date_string, filename, marker in (
+        ("2026-04-01", "oldest.md", "最も古いReflection"),
+        ("2026-04-02", "middle.md", "中間のReflection"),
+        ("2026-04-03", "newest.md", "最も新しいReflection"),
+    ):
+        (reflection_dir / filename).write_text(
+            f"---\ndate: {date_string}\n---\n{marker}\n{'あ' * 1_200}\n",
+            encoding="utf-8",
+        )
+
+    context = build_context.build_context(
+        days=3,
+        end_date=date(2026, 4, 3),
+        data_dir=tmp_path / "data",
+        vault_dir=vault_dir,
+        max_chars=3_000,
+    )
+
+    captured = capsys.readouterr()
+    assert "最も古いReflection" not in context
+    assert "中間のReflection" not in context
+    assert "最も新しいReflection" in context
+    assert "Reflections を古い順に 2 本省略しました" in captured.err
+
+
 def test_main_prints_generated_context_character_count(
     tmp_path, monkeypatch, capsys
 ) -> None:
@@ -421,6 +452,43 @@ generated_at: "2026-03-25T20:00:00+09:00"
     assert 'generated_at: "2026-03-25T20:00:00+09:00"' not in context
 
 
+def test_prompt_heading_with_parentheses_is_extracted() -> None:
+    section = build_context.extract_instruction_section(
+        """## 今週の指示（優先順に 3 つまで）
+
+**23時30分までに就寝する**
+
+## 指示の確認
+
+実行できたか確認する。
+"""
+    )
+
+    assert section == "**23時30分までに就寝する**"
+
+
+def test_existing_report_without_instruction_section_warns(
+    tmp_path, capsys
+) -> None:
+    data_dir = tmp_path / "data"
+    _write_report(
+        data_dir,
+        "2026-03-25_analysis.md",
+        "## 今の状態\n\n指示節がないレポート\n",
+    )
+
+    context = build_context.build_context(
+        days=1,
+        end_date=date(2026, 4, 1),
+        data_dir=data_dir,
+        vault_dir=tmp_path / "missing-vault",
+    )
+
+    captured = capsys.readouterr()
+    assert context.endswith("## 前回の指示と予測\n\n初回のため無し\n")
+    assert "前回の指示節を抜粋できません" in captured.err
+
+
 def test_absent_previous_report_is_reported_as_the_first_run(tmp_path) -> None:
     context = build_context.build_context(
         days=1,
@@ -432,7 +500,7 @@ def test_absent_previous_report_is_reported_as_the_first_run(tmp_path) -> None:
     assert context.endswith("## 前回の指示と予測\n\n初回のため無し\n")
 
 
-def test_report_dated_after_the_end_date_is_not_chosen_as_the_previous_one(
+def test_report_dated_on_or_after_end_date_is_not_chosen_as_previous(
     tmp_path,
 ) -> None:
     data_dir = tmp_path / "data"
@@ -440,6 +508,11 @@ def test_report_dated_after_the_end_date_is_not_chosen_as_the_previous_one(
         data_dir,
         "2026-03-25_analysis.md",
         "## 今週の指示\n\n過去のレポートの指示\n",
+    )
+    _write_report(
+        data_dir,
+        "2026-04-01_analysis.md",
+        "## 今週の指示\n\n同日のレポートの指示\n",
     )
     _write_report(
         data_dir,
@@ -456,6 +529,7 @@ def test_report_dated_after_the_end_date_is_not_chosen_as_the_previous_one(
 
     assert "## 前回の指示と予測（2026-03-25 作成）" in context
     assert "過去のレポートの指示" in context
+    assert "同日のレポートの指示" not in context
     assert "未来のレポートの指示" not in context
 
 
