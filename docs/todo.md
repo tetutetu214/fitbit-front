@@ -1,10 +1,10 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-23 -->
-- build_context: まばらな系列（Tanita 体重・体脂肪率）を「計測日と値の一覧」として表と別に 1 行で渡す（3 回目で最終計測日を誤読した対策）
-- 理解度テスト → PR 作成（feature/bedrock-analysis、c59d5db まで push 済み）
-- 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）
-- ⏳てつてつ: 3 回目レポートの「指示の確認」1・3（23:00 区切りは可能か / 日中の眠気・疲労の自覚）。2 は取り込み側で解決済み（08-06 まで計測あり）
+- ⏳てつてつ: PR #71 のレビュー → マージ（https://github.com/tetutetu214/fitbit-front/pull/71 、reviewer 2 巡 pass 済み）
+- 次セッション: 「起動時に取得→解析→画面表示」の設計（arch-sparring: ローカル API サーバ / 1 日 1 回キャッシュ / aws login 前提）→ コーチカード実装
+- 週次運用: 日曜朝に fetch → build_context → analyze（--end は前日）で「前回の答え合わせ」を溜める。次回は 08-31 ごろ
+- reviewer の non-blocking 指摘 4 件（見出しの正規表現化・ValueError 前の警告順序・auth 断片入力・+デコード）は次の実装ついでに拾う
 - 運用: 週 1 回（日曜朝）に fetch → build_context → analyze を回して「前回の答え合わせ」を溜める
 
 ## サイクル 0（2026-08-23 着手）
