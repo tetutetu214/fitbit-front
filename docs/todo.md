@@ -10,8 +10,10 @@
 - [x] docs/spec.md 起草 → Codex 敵対的検証で v2 → reviewer 指摘で v2.1
 - [x] 実装一式（Codex 2 ラウンド。pytest 86 / ruff 0 / Vitest 28 / tsc 0 / ESLint 0）
 - [x] reviewer 2 巡（1 巡目 11 件修正 → 2 巡目 pass）、理解度テスト 3/3 正解
-- [ ] ⏳てつてつ: `aws login` → 実物 1 件で running → ready を目視、数値検算、初回コスト記録（COACH_MODEL_ID の実 ID 確定もここで）
-- [ ] PR 作成（実物確認の後）
+- [x] 実物 1 件（08-30）: running → ready、検算（一致 14 / 不一致 3 は集計・選択の判断誤り）、実測 $0.070/回を knowledge.md と spec §6 に記録
+- [ ] PR 作成（判定 JSON 配置 → gh pr create）
+- [ ] サイクル 2 候補（本人フィードバック 08-30）: 既存ダッシュボードが「数値だらけで見にくい」「心拍・HRV を見たい」→ plan.md §3 Won't「ダッシュボード改修」の再検討が必要。product-sparring で「カードに寄せるか・ダッシュボードを直すか」を判断してから着手
+- [ ] サイクル 2 候補（品質）: 答え合わせの件数はプロンプトで「該当日を列挙 → 件数」の順序に固定 / worklog の最終エントリ時刻は build_context で機械抽出して渡す
 - [ ] reviewer non-blocking 3 件は次の実装ついでに拾う: パリティテストを差分 7 ケースへ拡張（days float / generated_at のタイムゾーン 4 形態）/ spawn に cwd 明示 / いずれも現行パイプライン非到達
 
 ## サイクル 0（2026-08-23 着手）
