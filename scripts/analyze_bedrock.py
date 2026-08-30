@@ -25,6 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
 SYSTEM_PROMPT_PATH = PROJECT_ROOT / "prompts" / "health_analysis.md"
 CONTEXT_FILENAME = re.compile(r"^(\d{4}-\d{2}-\d{2})_context\.md$")
+CONTEXT_DAYS = re.compile(r"^- 期間: .+ \((\d+)日\)$", re.MULTILINE)
 
 AUTH_ERROR_CODES = {
     "AccessDenied",
@@ -63,16 +64,21 @@ def invoke_converse(
     model_id: str,
     system_prompt: str,
     context: str,
+    max_tokens: int = 4000,
 ) -> tuple[str, int, int]:
     """Converse APIを1回呼び、本文とトークン数を返す。"""
+    if max_tokens < 1:
+        raise ValueError("max_tokens は1以上である必要があります")
     response = client.converse(
         modelId=model_id,
         system=[{"text": system_prompt}],
         messages=[
             {"role": "user", "content": [{"text": context}]},
         ],
-        inferenceConfig={"maxTokens": 4000, "temperature": 0.3},
+        inferenceConfig={"maxTokens": max_tokens, "temperature": 0.3},
     )
+    if response.get("stopReason") == "max_tokens":
+        raise ValueError("maxTokens 上限で切れた")
 
     output = response.get("output")
     message = output.get("message") if isinstance(output, dict) else None
@@ -142,15 +148,27 @@ def resolve_end_date(context_path: Path, explicit_end: date | None) -> date:
     return date.fromisoformat(match.group(1))
 
 
-def _context_label(context_path: Path) -> str:
+def _path_label(path: Path) -> str:
     try:
-        return str(context_path.relative_to(PROJECT_ROOT))
+        return str(path.relative_to(PROJECT_ROOT))
     except ValueError:
-        return str(context_path)
+        return str(path)
+
+
+def _context_label(context_path: Path) -> str:
+    return _path_label(context_path)
 
 
 def _yaml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def resolve_context_days(context: str) -> int | None:
+    """build_context.py が書く期間行から対象日数を取り出す。"""
+    match = CONTEXT_DAYS.search(context)
+    if match is None:
+        return None
+    return int(match.group(1))
 
 
 def write_report(
@@ -163,9 +181,15 @@ def write_report(
     end_date: date,
     data_dir: Path = DATA_DIR,
     generated_at: datetime | None = None,
+    prompt_path: Path | None = None,
+    days: int | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     """YAML frontmatterを付け、モデル本文を変更せず保存する。"""
     timestamp = generated_at or datetime.now().astimezone()
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.astimezone()
+    resolved_prompt_path = prompt_path or SYSTEM_PROMPT_PATH
     frontmatter = "\n".join(
         [
             "---",
@@ -175,15 +199,21 @@ def write_report(
             f"output_tokens: {output_tokens}",
             f"context_file: {_yaml_string(_context_label(context_path))}",
             f"generated_at: {_yaml_string(timestamp.isoformat(timespec='seconds'))}",
+            f"end: {_yaml_string(end_date.isoformat())}",
+            f"days: {days if days is not None else 'null'}",
+            f"prompt: {_yaml_string(_path_label(resolved_prompt_path))}",
             "---",
             "",
         ]
     )
-    output_dir = data_dir / "reports"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{end_date.isoformat()}_analysis.md"
-    output_path.write_text(f"{frontmatter}{model_text}", encoding="utf-8")
-    return output_path
+    resolved_output_path = output_path or (
+        data_dir / "reports" / f"{end_date.isoformat()}_analysis.md"
+    )
+    resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_output_path.write_text(
+        f"{frontmatter}{model_text}", encoding="utf-8"
+    )
+    return resolved_output_path
 
 
 def analyze_context(
@@ -193,13 +223,18 @@ def analyze_context(
     end_date: date,
     data_dir: Path = DATA_DIR,
     client: BedrockRuntimeClient | None = None,
+    prompt_path: Path | None = None,
+    output_path: Path | None = None,
+    max_tokens: int = 4000,
+    days: int | None = None,
 ) -> Path:
     """system/contextを読み、Converseを1回呼んでレポートを保存する。"""
-    system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+    resolved_prompt_path = prompt_path or SYSTEM_PROMPT_PATH
+    system_prompt = resolved_prompt_path.read_text(encoding="utf-8")
     context = context_path.read_text(encoding="utf-8")
     runtime_client = client or create_bedrock_client(region)
     model_text, input_tokens, output_tokens = invoke_converse(
-        runtime_client, model_id, system_prompt, context
+        runtime_client, model_id, system_prompt, context, max_tokens
     )
     return write_report(
         model_text=model_text,
@@ -210,6 +245,9 @@ def analyze_context(
         context_path=context_path,
         end_date=end_date,
         data_dir=data_dir,
+        prompt_path=resolved_prompt_path,
+        days=days if days is not None else resolve_context_days(context),
+        output_path=output_path,
     )
 
 
@@ -238,6 +276,16 @@ def _iso_date(value: str) -> date:
         raise argparse.ArgumentTypeError("YYYY-MM-DD形式で指定してください") from error
 
 
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("整数を指定してください") from error
+    if number < 1:
+        raise argparse.ArgumentTypeError("1以上を指定してください")
+    return number
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Bedrock Converse APIで体調contextを分析します"
@@ -254,6 +302,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="contextファイル。省略時は--endの日付または最新ファイル",
     )
     parser.add_argument("--end", type=_iso_date, help="出力日 (YYYY-MM-DD)")
+    parser.add_argument(
+        "--prompt",
+        type=Path,
+        help="system prompt (既定: prompts/health_analysis.md)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="出力先 (既定: data/reports/{end}_analysis.md)",
+    )
+    parser.add_argument(
+        "--max-tokens",
+        type=_positive_int,
+        default=4000,
+        help="最大出力トークン数 (既定: 4000)",
+    )
+    parser.add_argument(
+        "--days",
+        type=_positive_int,
+        help="frontmatterに記録する対象日数",
+    )
     return parser
 
 
@@ -267,6 +336,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             region=args.region,
             context_path=context_path,
             end_date=end_date,
+            prompt_path=args.prompt,
+            output_path=args.output,
+            max_tokens=args.max_tokens,
+            days=args.days,
         )
     except (FileNotFoundError, TypeError, ValueError) as error:
         print(f"エラー: {error}", file=sys.stderr)

@@ -185,7 +185,7 @@ def fetch_innerscan(
         取得期間は最大 3ヶ月。超えると自動補正される。
     """
     if to_date is None:
-        to_date = datetime.now()
+        to_date = datetime.now()  # noqa: DTZ005
     if from_date is None:
         from_date = to_date - timedelta(days=90)
 
@@ -216,7 +216,7 @@ def _parse_and_display(data: dict) -> None:
         date_str = item["date"]          # "yyyyMMddHHmm"
         tag = item["tag"]
         value = float(item["keydata"])
-        dt = datetime.strptime(date_str, "%Y%m%d%H%M")
+        dt = datetime.strptime(date_str, "%Y%m%d%H%M")  # noqa: DTZ007
         key = dt.strftime("%Y-%m-%d %H:%M")
         by_date.setdefault(key, {})
         if tag == TAG_WEIGHT:
@@ -265,7 +265,7 @@ def save_daily_tanita(data: dict) -> None:
     # 日付 → {datetime: {weight, body_fat}}
     by_day: dict[str, dict[str, dict]] = {}
     for item in records:
-        dt = datetime.strptime(item["date"], "%Y%m%d%H%M")
+        dt = datetime.strptime(item["date"], "%Y%m%d%H%M")  # noqa: DTZ007
         day = dt.strftime("%Y-%m-%d")
         ts = dt.strftime("%Y-%m-%d %H:%M")
         tag = item["tag"]

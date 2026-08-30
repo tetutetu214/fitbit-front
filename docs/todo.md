@@ -1,18 +1,21 @@
 # todo.md
 
-## 次の一手 <!-- next-move: 2026-08-24 -->
-- ⏳てつてつ: docs/spec.md（コーチカード）の確認。OK なら Codex 委譲で実装開始（ブランチ feature/coach-card）
-- 08-31 日曜朝: 週次解析（aws login → fetch → build_context → analyze）＋ Cost Explorer で 08-23 の Opus 4.5 分にクレジットが当たっているか確認（RECORD_TYPE=Credit/Usage）。当たっていれば日次モデルを Opus 4.5 に切替
+## 次の一手 <!-- next-move: 2026-08-30 -->
+- ⏳てつてつ: PR #72（コーチカード）のレビュー → マージ（https://github.com/tetutetu214/fitbit-front/pull/72 、reviewer 2 巡 pass・実物 1 件確認済み）
+- 週次解析（日曜朝、aws login → fetch → build_context → analyze）＋ Cost Explorer で 08-23 の Opus 4.5 分にクレジットが当たっているか確認（RECORD_TYPE=Credit/Usage）。当たっていれば COACH_MODEL_ID を Opus 4.5 に切替。08-30 は未実施（コーチカードの実物確認を優先）
+- マージ後のサイクル 2 は product-sparring から: 「既存ダッシュボードの見にくさ・心拍/HRV」を plan.md Won't のまま置くか、カード側に寄せるかを決めてから着手
 - reviewer の non-blocking 指摘 4 件（見出しの正規表現化・ValueError 前の警告順序・auth 断片入力・+デコード）は次の実装ついでに拾う
 
-## サイクル 1 コーチカード（2026-08-24 設計、spec.md）
+## サイクル 1 コーチカード（2026-08-24 設計、spec.md v2.1）
 - [x] arch-sparring で実行経路を決定（ADR-001: Vite ミドルウェア）
-- [x] docs/spec.md 起草
-- [ ] `scripts/coach_daily.py` / `analyze_bedrock.py --prompt --output` / `prompts/coach_daily.md`
-- [ ] `vite/coach-plugin.ts` + Vitest 5 件
-- [ ] `src/components/CoachCard.tsx` + `App.tsx` 1 行
-- [ ] 実物 1 件で loading → ready を目視、数値検算、初回コストを knowledge.md に記録
-- [ ] PR 作成（理解度テスト → reviewer）
+- [x] docs/spec.md 起草 → Codex 敵対的検証で v2 → reviewer 指摘で v2.1
+- [x] 実装一式（Codex 2 ラウンド。pytest 86 / ruff 0 / Vitest 28 / tsc 0 / ESLint 0）
+- [x] reviewer 2 巡（1 巡目 11 件修正 → 2 巡目 pass）、理解度テスト 3/3 正解
+- [x] 実物 1 件（08-30）: running → ready、検算（一致 14 / 不一致 3 は集計・選択の判断誤り）、実測 $0.070/回を knowledge.md と spec §6 に記録
+- [ ] PR 作成（判定 JSON 配置 → gh pr create）
+- [ ] サイクル 2 候補（本人フィードバック 08-30）: 既存ダッシュボードが「数値だらけで見にくい」「心拍・HRV を見たい」→ plan.md §3 Won't「ダッシュボード改修」の再検討が必要。product-sparring で「カードに寄せるか・ダッシュボードを直すか」を判断してから着手
+- [ ] サイクル 2 候補（品質）: 答え合わせの件数はプロンプトで「該当日を列挙 → 件数」の順序に固定 / worklog の最終エントリ時刻は build_context で機械抽出して渡す
+- [ ] reviewer non-blocking 3 件は次の実装ついでに拾う: パリティテストを差分 7 ケースへ拡張（days float / generated_at のタイムゾーン 4 形態）/ spawn に cwd 明示 / いずれも現行パイプライン非到達
 
 ## サイクル 0（2026-08-23 着手）
 - [x] 方向転換の整理と docs/plan.md 起草
