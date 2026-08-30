@@ -21,7 +21,7 @@ COACH_HEADINGS = (
     "## 根拠データ",
     "## 注意",
 )
-MAX_BODY_CHARS = 1_200
+MAX_BODY_CHARS = 2_400
 WEEKLY_REPORT_FILENAME = re.compile(
     r"^(\d{4}-\d{2}-\d{2})_analysis\.md$"
 )
@@ -135,7 +135,7 @@ def parse_coach_report(content: str) -> CoachReport:
     frontmatter, body = _split_frontmatter(content)
     _validate_api_metadata(frontmatter)
     if len(body) > MAX_BODY_CHARS:
-        raise CoachReportError("本文が1,200文字を超えています")
+        raise CoachReportError("本文が2,400文字を超えています")
 
     lines = body.split("\n")
     headings = [line for line in lines if line.startswith("## ")]
@@ -316,7 +316,7 @@ def _run_pipeline(
         "--output",
         str(tmp_path),
         "--max-tokens",
-        "1500",
+        "2500",
         "--days",
         str(days),
     ]

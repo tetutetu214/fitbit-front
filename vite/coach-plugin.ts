@@ -96,7 +96,7 @@ function parseReport(content: string): { generatedAt: string; modelId: string; d
     metadata.set(key, value);
   }
   const body = lines.slice(boundary + 1).join('\n').trim();
-  if ([...body].length > 1_200) return null;
+  if ([...body].length > 2_400) return null;
   const bodyLines = body.split('\n');
   const headings = bodyLines.filter(line => line.startsWith('## '));
   if (headings.length !== HEADINGS.length || headings.some((heading, index) => heading !== HEADINGS[index])) return null;

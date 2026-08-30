@@ -284,9 +284,9 @@ def test_empty_section_is_rejected() -> None:
         coach_daily.parse_coach_report(empty)
 
 
-def test_body_over_1200_characters_is_rejected() -> None:
+def test_body_over_2400_characters_is_rejected() -> None:
     oversized = VALID_REPORT.replace(
-        "23時30分に就寝する。", "あ" * 1_200
+        "23時30分に就寝する。", "あ" * 2_400
     )
 
     with pytest.raises(coach_daily.CoachReportError):
