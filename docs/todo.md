@@ -1,7 +1,7 @@
 # todo.md
 
 ## 次の一手 <!-- next-move: 2026-08-30 -->
-- ⏳てつてつ: PR #72（コーチカード）のレビュー → マージ（https://github.com/tetutetu214/fitbit-front/pull/72 、reviewer 2 巡 pass・実物 1 件確認済み）
+- PR #72（コーチカード）マージ済み（08-30、merge commit afdf526、ブランチ削除済み）。サイクル 1 完了
 - 週次解析（日曜朝、aws login → fetch → build_context → analyze）＋ Cost Explorer で 08-23 の Opus 4.5 分にクレジットが当たっているか確認（RECORD_TYPE=Credit/Usage）。当たっていれば COACH_MODEL_ID を Opus 4.5 に切替。08-30 は未実施（コーチカードの実物確認を優先）
 - マージ後のサイクル 2 は product-sparring から: 「既存ダッシュボードの見にくさ・心拍/HRV」を plan.md Won't のまま置くか、カード側に寄せるかを決めてから着手
 - reviewer の non-blocking 指摘 4 件（見出しの正規表現化・ValueError 前の警告順序・auth 断片入力・+デコード）は次の実装ついでに拾う
